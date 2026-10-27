@@ -3,72 +3,45 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>WhisperX · Задачи</title>
-<link rel="stylesheet" href="./app.css?v=1.2.0">
+<title>Servim</title>
+<link rel="stylesheet" href="./app.css?v=1.3.0">
 </head>
 <body>
 <header>
-  <span class="brand"><i id="lamp"></i><h1>WhisperX</h1></span>
+  <span class="brand"><i id="lamp"></i><h1>Servim</h1></span>
   <span class="grow"></span>
-  <span class="ver" id="hmodel">—</span>
-  <span class="ver" id="hdiar">—</span>
-  <span class="ver" id="hq"></span>
+  <button class="icobtn" id="gear" data-tip="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1.1A1.6 1.6 0 0 0 4.6 15H4.4a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 12 5.6a1.6 1.6 0 0 0 1.5-1.1V4.4a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1z"/></svg></button>
+  <div class="sheet" id="cfg" hidden>
+    <h3>Подключение</h3>
+    <label class="fld"><span>Адрес сервера</span><input id="c_url" type="text" placeholder="http://192.168.10.149:8090/" spellcheck="false"></label>
+    <label class="fld"><span>API key</span><input id="c_key" type="password" placeholder="пока не требуется" spellcheck="false"></label>
+    <h3>Профиль</h3>
+    <label class="fld"><span>Имя пользователя</span><input id="c_user" type="text" placeholder="будет использоваться позже" spellcheck="false"></label>
+    <label class="fld"><span>Токен</span><input id="c_tok" type="password" placeholder="будет использоваться позже" spellcheck="false"></label>
+    <p class="hintx">Адрес применяется сразу, остальное — когда сервер начнёт их требовать. Значения хранятся только в этом браузере.</p>
+    <div class="actx"><button class="tbtn" id="c_reset" data-tip="сбросить адрес к адресу этой страницы">Сбросить</button><button class="tbtn pri" id="c_ok" data-tip="закрыть">Готово</button></div>
+    <p class="hintx ver2" id="vcopy"></p>
+  </div>
 </header>
 
 <div class="wrap">
   <div class="card" id="card">
-    <h2>Задачи <span class="sub2" id="hsub">загрузка…</span>
-      <span class="ver" id="vcopy" title="версия сервиса"></span></h2>
 
     <!-- ================================ панель инструментов -->
     <div class="tools">
-      <button class="tbtn pri" id="add" title="Добавить файлы в очередь (можно перетащить на таблицу)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        <span>Добавить</span></button>
+      <button class="tbtn pri" id="add" data-tip="Добавить файлы (можно перетащить на таблицу)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
       <input type="file" id="f" multiple hidden accept="audio/*,video/*,.wav,.mp3,.ogg,.m4a,.flac,.aac,.opus,.mp4,.mkv,.webm,.mov">
 
-      <button class="tbtn pri" id="start" disabled title="Запустить обработку очереди">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
-        <span>Старт</span></button>
+      <button class="tbtn pri" id="start" disabled data-tip="Запустить обработку очереди"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></button>
 
-      <button class="tbtn stop" id="stop" disabled title="Остановить очередь и прервать текущую задачу">
-        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-        <span>Стоп</span></button>
+      <button class="tbtn pri" id="stop" disabled data-tip="Остановить очередь и прервать текущую задачу"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
 
       <span class="sep"></span>
 
-      <button class="tbtn danger" id="del" disabled title="Удалить отмеченные задачи (с запросом)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
-        <span>Удалить<span id="ndel"></span></span></button>
-      <button class="tbtn" id="dlall" disabled title="Скачать все готовые результаты архивом">
-        <span>⤓</span><span>Скачать всё</span></button>
-      <button class="tbtn" id="selpall" title="Отметить все задачи"><span>Выделить все</span></button>
-      <button class="tbtn" id="selnone" title="Снять все отметки"><span>Снять выделение</span></button>
-
-      <span class="sep"></span>
-
-      <button class="tbtn" data-flag="diarize" aria-pressed="true" title="Диаризация спикеров (pyannote 3.1)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM4 21a8 8 0 0 1 16 0"/></svg>
-        <span>Диаризация</span></button>
-      <button class="tbtn" data-flag="vad_filter" aria-pressed="true" title="VAD — пропуск тишины (silero)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h3l3-7 3 14 3-11 2 4h4"/></svg>
-        <span>VAD</span></button>
-      <button class="tbtn" data-flag="word_timestamps" aria-pressed="true" title="Таймкоды слов (pápka)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>
-        <span>Таймкоды</span></button>
-
-      <span class="sep"></span>
-      <select id="model" title="модель"></select>
-      <select id="lang" title="язык">
-        <option value="">язык: авто</option><option value="ru">русский</option>
-        <option value="en">английский</option><option value="uk">украинский</option>
-        <option value="zh">китайский</option><option value="de">немецкий</option>
-        <option value="fr">французский</option><option value="tr">турецкий</option>
-      </select>
-      <select id="maxs" title="максимум спикеров"><option>спикеров ≤ 2</option><option selected>спикеров ≤ 4</option>
-        <option>спикеров ≤ 8</option><option>спикеров ≤ 16</option></select>
-      <span class="count" id="cnt">—</span>
-    </div>
+      <button class="tbtn danger" id="del" disabled data-tip="Удалить отмеченные задачи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><i id="ndel" class="badge"></i></button>
+      <button class="tbtn" id="selpall" data-tip="Отметить все задачи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></button>
+      <button class="tbtn" id="selnone" data-tip="Снять все отметки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></button>
+      </div>
 
     <div class="mob-sel">
       <select data-mirror="model"></select><select data-mirror="lang"></select><select data-mirror="maxs"></select>
@@ -78,7 +51,7 @@
     <div class="tw" id="tw" style="--rows:5">
       <table>
         <thead><tr>
-          <th class="c-st"><label class="ck" title="выделить все"><input type="checkbox" id="all" aria-label="выделить все"></label></th>
+          <th class="c-st"><label class="ck" data-tip="выделить все"><input type="checkbox" id="all" aria-label="выделить все"></label></th>
           <th class="c-file">Файл</th>
           <th class="c-type">Тип</th>
           <th class="c-dur">Длит.</th>
@@ -114,7 +87,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=1.2.0"></script>
+<script src="./app.js?v=1.3.0"></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">

@@ -13,14 +13,19 @@
 'use strict';
 
 // база относительно документа: работает и с localhost, и за прокси с путём
-const EP = location.pathname.replace(/[^/]*$/, '');
+const EP0 = location.pathname.replace(/[^/]*$/, '');
+const CFG_KEY = 'servim.cfg';
+const cfg = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch (e) { return {}; } };
+let EP = EP0;                       // подменяется настройкой «адрес сервера»
+const authHeaders = () => { const c = cfg(); const h = {};
+  if (c.key) h.Authorization = 'Bearer ' + c.key; return h; };
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const LS = 'wx.ui.v3';
-const UI_VER = '1.2.0';   // синхронно с ?v= в index.html
+const UI_VER = '1.3.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -90,13 +95,7 @@ async function loadHealth() {
   const ok = S.health.status === 'ready';
   const lamp = $('#lamp');
   lamp.className = S.health.busy ? 'busy' : (ok ? 'ok' : (S.health.error ? 'bad' : ''));
-  const _vc = $('#vcopy'); if (_vc) _vc.textContent = 'UI ' + UI_VER;
-  $('#hmodel').textContent = `${S.health.model || '—'} · ${S.health.device || ''} · ${S.health.compute_type || ''}`;
-  $('#hdiar').textContent = S.health.diar_ready ? 'диаризация: pyannote 3.1' : 'диаризация: нет токена';
-  const v = S.health.vram || {};
-  $('#dlall') && ($('#dlall').disabled = !(S.jobs || []).some((j) => j.status === 'ready' || j.status === 'done'));
-    $('#hq').textContent = v.total_gib ? `VRAM ${v.free_gib} из ${v.total_gib} GiB` : '';
-  $('#vcopy').textContent = S.health.version ? 'v' + S.health.version : '';
+  const _v = $('#vcopy'); if (_v) _v.textContent = 'UI ' + UI_VER + (S.health.version ? ' · сервер v' + S.health.version : '');
 }
 async function loadModels() {
   const m = await api(EP + 'v1/models');
@@ -145,11 +144,16 @@ function render() {
       const TIP = { json: 'полный JSON', txt: 'текст без разметки', srt: 'субтитры SRT',
         vtt: 'субтитры WebVTT', tsv: 'таблица TSV', md: 'Markdown', stxt: 'Super TXT',
         keywords: 'ключевые слова', summary: 'выжимка' };
+      const DLP = ['stxt', 'md', 'vtt'];
+      const dls = (S.formats && S.formats.length ? S.formats : ['stxt', 'md', 'vtt', 'srt', 'txt', 'json', 'tsv', 'diarized_json'])
+        .filter(f => EXPORT.includes(f));
+      const pill = (f, hide) => `<a class="dl${hide ? ' dlx' : ''}" href="${dlUrl(j.id, f)}" data-tip="скачать .${f}">${f}</a>`;
+      const head = dls.filter(f => DLP.includes(f)), tail = dls.filter(f => !DLP.includes(f));
       const res = j.status === 'done'
-        ? `<div class="fmts"><button class="fp act" data-k="kdl" data-tip="скачать результат — формат выберешь в меню">⤓</button></div>`
-        : `<div class="fmts"><span class="fp ph" data-tip="${j.status === 'error'
-            ? 'ошибка обработки — запусти заново' : isLive(j)
-            ? 'появится, когда закончится обработка' : 'запусти обработку — и здесь появятся файлы'}'>···</span></div>`;
+        ? `<div class="dls">${head.map(f => pill(f, 0)).join('')}${tail.length
+            ? `<button class="dl more" data-k="dlmore" data-tip="и ещё ${tail.length} форматов">…</button>${tail.map(f => pill(f, 1)).join('')}` : ''}</div>`
+        : `<div class="dls"><span class="dl ph" data-tip="${j.status === 'error' ? 'ошибка обработки — запусти заново'
+            : isLive(j) ? 'появится, когда закончится обработка' : 'запусти обработку — и здесь появятся файлы'}">…</span></div>`;
       return `<tr data-id="${j.id}" tabindex="0" class="${j.status === 'running' ? 'running' : ''} ${S.sel === j.id ? 'sel' : ''} ${S.picked.has(j.id) ? 'pick' : ''}">
         <td class="c-st"><label class="ck" title="отметить"><input type="checkbox" data-ck="${j.id}" ${S.picked.has(j.id) ? 'checked' : ''} tabindex="-1" aria-label="отметить ${esc(j.name)}"></label>
           <span class="st ${j.status}" title="${LABEL[j.status] || j.status}">${ICON[j.status] || ICON.plan}</span></td>
@@ -168,8 +172,6 @@ function render() {
   const n = S.jobs.length, run = S.jobs.filter(isLive).length;
   const plan = S.jobs.filter(j => j.status === 'plan').length, ready = S.jobs.filter(j => j.status === 'done').length;
   $('#cnt').textContent = `${n} · ${plural(n, 'задача', 'задачи', 'задач')}`;
-  $('#hsub').innerHTML = (S.queue.paused && !S.health.busy ? '<span class="paused">пауза</span> · ' : '') +
-    (run ? `обрабатывается ${run} · ` : '') + `в очереди ${plan} · готово ${ready}`;
   // «Старт» нужен, пока есть незапущенные задачи или очередь на паузе; «Стоп» — пока что-то
   // идёт или ждёт своей очереди.
   $('#ndel').textContent = S.picked.size ? S.picked.size : '';
@@ -392,38 +394,12 @@ function wire() {
   });
   const openRow = (tr) => { S.sel = S.openId = tr.dataset.id; render(); show(S.openId); };
 
-  $('#tb').addEventListener('click', async (e) => {   // единственная кнопка строки — «Скачать»
-    const b = e.target.closest('[data-k="kdl"]'); if (!b) return;
-    const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
-    e.stopPropagation();
-    const list = S.jobs || [];
-    const j = list.find((x) => x.id === tr.dataset.id); if (!j) return;
-    const f = await pickFmt(j);
-    if (f) location.href = dlUrl(j.id, f);
+  $('#tb').addEventListener('click', (e) => {      // «…» раскрывает остальные форматы
+    const b = e.target.closest('[data-k="dlmore"]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    b.closest('.dls').classList.toggle("open");
   });
-
-/* единственная кнопка действия: список форматов — в меню, а не россыпью ссылок */
-const PICK = [['srt', 'субтитры SRT'], ['vtt', 'субтитры WebVTT'],
-  ['txt', 'текст без разметки'], ['json', 'JSON со словами'],
-  ['md', 'Markdown со спикерами'], ['tsv', 'таблица TSV'],
-  ['stxt', 'диалект Super TXT'], ['diarized_json', 'JSON со спикерами']];
-function pickFmt(j) {
-  return new Promise((resolve) => {
-    const m = $('#pickmask');
-    $('#pickt').textContent = 'Скачать · ' + (j.name.length > 40 ? j.name.slice(0, 40) + '…' : j.name);
-    $('#picks').innerHTML = PICK.map(([f, t]) =>
-      `<button class="pick" data-f="${f}"><b>.${f}</b><span>${t}</span></button>`).join('');
-    m.hidden = false;
-    const close = (v) => { m.hidden = true; resolve(v); };
-    $('#picks').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) close(b.dataset.f); };
-    $('#pickno').onclick = () => close(null);
-    m.onclick = (e) => { if (e.target === m) close(null); };
-  });
-}
-  if ($('#dlall')) $('#dlall').onclick = () => {
-    const f = localStorage.getItem(LS + '.fmt') || 'srt';
-    location.href = `${EP}download?fmt=${encodeURIComponent(f)}`;
-  };
+  const reload = () => { loadHealth().then(() => loadJobs()).catch(() => {}); };
   $('#tb').addEventListener('dblclick' , (e) => {   // двойной — открыть результат
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
     openRow(tr);
@@ -442,6 +418,23 @@ function pickFmt(j) {
     if (e.key === 'Delete' && S.sel && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) del(S.sel);
     if (e.key === 'Escape') { if (!$('#askmask').hidden) return; S.openId = null; hideRes(); }
   });
+
+  (function settings() {
+    const sheet = $('#cfg'); if (!sheet) return;
+    const fields = { url: $('#c_url'), key: $('#c_key'), user: $('#c_user'), tok: $('#c_tok') };
+    const show = () => { const c = cfg(); Object.keys(fields).forEach(k => { if (fields[k]) fields[k].value = c[k] || ''; }); };
+    const save = () => { const c = {}; Object.keys(fields).forEach(k => { if (fields[k] && fields[k].value) c[k] = fields[k].value.trim(); });
+      localStorage.setItem(CFG_KEY, JSON.stringify(c));
+      const u = (c.url || '').trim().replace(/\/+$/, ''); EP = u ? u + '/' : EP0; };
+    Object.values(fields).forEach(el => el && el.addEventListener('change', save));
+    $('#gear').onclick = () => { show(); sheet.hidden = !sheet.hidden; };
+    $('#c_ok').onclick = () => { save(); sheet.hidden = true; reload(); };
+    $('#c_reset').onclick = () => { fields.url.value = ''; save(); reload(); };
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sheet.hidden = true; });
+    show();
+    const u = (cfg().url || '').trim().replace(/\/+$/, '');
+    if (u) EP = u + '/';
+  })();
 
   const tw = $('#tw');
   ['dragenter', 'dragover'].forEach(ev => tw.addEventListener(ev, (e) => { e.preventDefault(); tw.classList.add('drop'); }));
