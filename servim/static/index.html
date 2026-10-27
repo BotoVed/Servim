@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>WhisperX · Задачи</title>
-<link rel="stylesheet" href="./app.css">
+<link rel="stylesheet" href="./app.css?v=1.2.0">
 </head>
 <body>
 <header>
-  <span class="brand"><i id="lamp"></i><h1>Servim</h1></span>
+  <span class="brand"><i id="lamp"></i><h1>WhisperX</h1></span>
   <span class="grow"></span>
   <span class="ver" id="hmodel">—</span>
   <span class="ver" id="hdiar">—</span>
@@ -40,6 +40,8 @@
       <button class="tbtn danger" id="del" disabled title="Удалить отмеченные задачи (с запросом)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>
         <span>Удалить<span id="ndel"></span></span></button>
+      <button class="tbtn" id="dlall" disabled title="Скачать все готовые результаты архивом">
+        <span>⤓</span><span>Скачать всё</span></button>
       <button class="tbtn" id="selpall" title="Отметить все задачи"><span>Выделить все</span></button>
       <button class="tbtn" id="selnone" title="Снять все отметки"><span>Снять выделение</span></button>
 
@@ -112,8 +114,16 @@
   </div>
 </div>
 
-<script src="./app.js"></script>
+<script src="./app.js?v=1.2.0"></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
+  <div class="mask" id="pickmask" hidden>
+    <div class="box askbox">
+      <h3 id="pickt">Скачать результат</h3>
+      <p class="askx" id="pickx">выберите формат — файл соберётся на сервере</p>
+      <div class="picks" id="picks"></div>
+      <div class="actions"><button class="tbtn" id="pickno">Отмена</button></div>
+    </div>
+  </div>
   <div class="mask" id="askmask" hidden>
     <div class="ask" role="alertdialog" aria-modal="true" aria-labelledby="askt">
       <h4 id="askt">Удалить?</h4><p id="askx"></p>

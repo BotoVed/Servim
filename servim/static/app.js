@@ -1,4 +1,4 @@
-/* Servim · таблица задач.
+/* WhisperX · таблица задач.
    Только реальные ответы сервиса (проверено probe_shape.py):
      GET    /health                 -> {status,model,paused,queue,busy,formats,vram,...}
      GET    /v1/models              -> {data:[{id,downloaded,...}]}
@@ -20,6 +20,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const LS = 'wx.ui.v3';
+const UI_VER = '1.2.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -89,10 +90,12 @@ async function loadHealth() {
   const ok = S.health.status === 'ready';
   const lamp = $('#lamp');
   lamp.className = S.health.busy ? 'busy' : (ok ? 'ok' : (S.health.error ? 'bad' : ''));
+  const _vc = $('#vcopy'); if (_vc) _vc.textContent = 'UI ' + UI_VER;
   $('#hmodel').textContent = `${S.health.model || '—'} · ${S.health.device || ''} · ${S.health.compute_type || ''}`;
   $('#hdiar').textContent = S.health.diar_ready ? 'диаризация: pyannote 3.1' : 'диаризация: нет токена';
   const v = S.health.vram || {};
-  $('#hq').textContent = v.total_gib ? `VRAM ${v.free_gib} из ${v.total_gib} GiB` : '';
+  $('#dlall') && ($('#dlall').disabled = !(S.jobs || []).some((j) => j.status === 'ready' || j.status === 'done'));
+    $('#hq').textContent = v.total_gib ? `VRAM ${v.free_gib} из ${v.total_gib} GiB` : '';
   $('#vcopy').textContent = S.health.version ? 'v' + S.health.version : '';
 }
 async function loadModels() {
@@ -143,7 +146,7 @@ function render() {
         vtt: 'субтитры WebVTT', tsv: 'таблица TSV', md: 'Markdown', stxt: 'Super TXT',
         keywords: 'ключевые слова', summary: 'выжимка' };
       const res = j.status === 'done'
-        ? `<div class="fmts">${F.map(f => `<a class="fp" href="${dlUrl(j.id, f)}" data-tip="${esc(TIP[f] || 'скачать ' + f)}">${GLYPH[f] || f[0].toUpperCase()}</a>`).join('')}</div>`
+        ? `<div class="fmts"><button class="fp act" data-k="kdl" data-tip="скачать результат — формат выберешь в меню">⤓</button></div>`
         : `<div class="fmts"><span class="fp ph" data-tip="${j.status === 'error'
             ? 'ошибка обработки — запусти заново' : isLive(j)
             ? 'появится, когда закончится обработка' : 'запусти обработку — и здесь появятся файлы'}'>···</span></div>`;
@@ -334,11 +337,21 @@ function mirror() {
 }
 
 /* --------------------------------------------------------------------- поллинг */
+let UI_STAMP = null;
+async function checkUi() {          // вкладка обязана сама обновиться после деплоя
+  try {
+    const h = await (await fetch(`${EP}health`)).json();
+    if (UI_STAMP === null) { UI_STAMP = h.ui_stamp ?? 0; return; }
+    if (h.ui_stamp && h.ui_stamp !== UI_STAMP) location.reload();
+  } catch { /* сервер ещё не поднялся */ }
+}
+
 function poll() {
   // Таймер НЕ самоубивается: раньше он гасился на первом же тике, пока задача ещё
   // не перешла в running, — и страница молчала до перезагрузки (F5).
   clearInterval(S.timer);
   S.timer = setInterval(async () => {
+    if ((S.ck = (S.ck || 0) + 1) % 10 === 0) checkUi();   // раз в ~25 с: не устарела ли вкладка
     if (document.hidden) return;          // в фоновой вкладке не крутим, вернёмся на focus/visibility
     await loadJobs();
     await loadHealth();
@@ -378,7 +391,40 @@ function wire() {
     S.sel = tr.dataset.id; render();               // одинарный клик — только выделение
   });
   const openRow = (tr) => { S.sel = S.openId = tr.dataset.id; render(); show(S.openId); };
-  $('#tb').addEventListener('dblclick', (e) => {   // двойной — открыть результат
+
+  $('#tb').addEventListener('click', async (e) => {   // единственная кнопка строки — «Скачать»
+    const b = e.target.closest('[data-k="kdl"]'); if (!b) return;
+    const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
+    e.stopPropagation();
+    const list = S.jobs || [];
+    const j = list.find((x) => x.id === tr.dataset.id); if (!j) return;
+    const f = await pickFmt(j);
+    if (f) location.href = dlUrl(j.id, f);
+  });
+
+/* единственная кнопка действия: список форматов — в меню, а не россыпью ссылок */
+const PICK = [['srt', 'субтитры SRT'], ['vtt', 'субтитры WebVTT'],
+  ['txt', 'текст без разметки'], ['json', 'JSON со словами'],
+  ['md', 'Markdown со спикерами'], ['tsv', 'таблица TSV'],
+  ['stxt', 'диалект Super TXT'], ['diarized_json', 'JSON со спикерами']];
+function pickFmt(j) {
+  return new Promise((resolve) => {
+    const m = $('#pickmask');
+    $('#pickt').textContent = 'Скачать · ' + (j.name.length > 40 ? j.name.slice(0, 40) + '…' : j.name);
+    $('#picks').innerHTML = PICK.map(([f, t]) =>
+      `<button class="pick" data-f="${f}"><b>.${f}</b><span>${t}</span></button>`).join('');
+    m.hidden = false;
+    const close = (v) => { m.hidden = true; resolve(v); };
+    $('#picks').onclick = (e) => { const b = e.target.closest('[data-f]'); if (b) close(b.dataset.f); };
+    $('#pickno').onclick = () => close(null);
+    m.onclick = (e) => { if (e.target === m) close(null); };
+  });
+}
+  if ($('#dlall')) $('#dlall').onclick = () => {
+    const f = localStorage.getItem(LS + '.fmt') || 'srt';
+    location.href = `${EP}download?fmt=${encodeURIComponent(f)}`;
+  };
+  $('#tb').addEventListener('dblclick' , (e) => {   // двойной — открыть результат
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
     openRow(tr);
   });

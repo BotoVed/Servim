@@ -269,4 +269,12 @@ kbd{background:#121b1d;border:1px solid var(--line2);border-radius:4px;padding:0
   border:1px solid var(--line);background:transparent;color:var(--fg);cursor:pointer}
 .ask .d{border-color:#c2554e;background:#c2554e;color:#fff}
 .ask .g:hover{background:rgba(255,255,255,.05)}
+/* 1.2.0: результат — фиксированная высота (~4 строки), дальше скролл внутри блока */
+#segs{{max-height:calc(4.2 * 1.55em + 26px);overflow-y:auto;overscroll-behavior:contain}}
+.picks{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0 4px}}
+.pick{{display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.03);cursor:pointer;text-align:left}}
+.pick:hover{{border-color:var(--acc);background:rgba(94,234,212,.08)}}
+.pick b{{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--acc)}}
+.pick span{{font-size:11.5px;color:var(--tx3)}}
+@media (max-width:520px){{.picks{{grid-template-columns:1fr}}}}
 @media (max-width:780px){ .mask{padding:0} .res{border-radius:0;max-height:100vh;height:100%} }

@@ -113,7 +113,9 @@ WantedBy=multi-user.target
 | `GET  /jobs/{id}/result?format=` | результат в выбранном формате |
 | `PUT  /jobs/{id}/speakers` | переименоватьспикеров (`{"A":"Иван"}`) |
 | `POST /queue/start`, `POST /queue/pause`, `GET /queue` | управление очередью |
-| `GET  /health`, `GET /metrics` | состояние сервиса, метрики Prometheus |
+| `GET  /download?fmt=` | все готовые результаты одним zip-архивом |
+| `GET  /jobs/{id}/download?fmt=` | тот же результат, короткая ссылка (`?fmt=` вместо `?format=`) |
+| `GET  /health`, `GET /metrics` | состояние сервиса, метрики Prometheus (поле `ui_stamp`) |
 
 Полная схема — `GET /openapi.json`, интерфейс — `http://<host>:8090/docs`.
 
@@ -135,6 +137,13 @@ WantedBy=multi-user.target
 
 Наши расширения, которые валидные OpenAI-клиенты проигнорируют: `diarize`, `vad_filter`, `beam_size`,
 `min_speakers`, `max_speakers`, `num_speakers`, `word_timestamps`, `known_speaker_names`.
+
+## Обновление интерфейса
+
+`/health` отдаёт `ui_stamp` — время изменения `app.js`. Загруженная вкладка сверяет его примерно
+раз в 25 секунд и сама делает `location.reload()` после обновления сервера: иначе во вкладке
+оставался старый JS и кнопки вели себя по-старой версии. Версия интерфейса показана в шапке
+(`UI x.y.z`) — по ней видно, какая сборка реально загружена.
 
 ## Ограничения
 

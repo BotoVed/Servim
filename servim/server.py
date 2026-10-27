@@ -731,6 +731,17 @@ async def translations(file: UploadFile = File(...), model: str = Form(...),
     return JSONResponse({"text": res["text_full"]})
 
 # --------------------------------------------------------------------------- UI API
+
+def _ui_stamp() -> int:
+    """Штамп версии интерфейса: mtime app.js. Фронт сравнивает его с тем, что загрузил,
+    и сам перезагружает страницу после обновления сервера — иначе во вкладке остаётся
+    старый JS и кнопки ведут себя по-старому."""
+    try:
+        return int((STATIC_DIR / "app.js").stat().st_mtime)
+    except OSError:
+        return 0
+
+
 @app.get("/health")
 def health() -> dict:
     vram = {}
@@ -742,6 +753,7 @@ def health() -> dict:
     except Exception:  # noqa: BLE001
         pass
     return {"version": app.version,
+            "ui_stamp": _ui_stamp(),
             "status": "loading" if _state["loading"] else ("error" if _state["error"] else "ready"),
             "model": _state["asr_name"] or DEFAULT_MODEL, "device": DEVICE, "compute_type": COMPUTE,
             "asr_loaded": _state["asr"] is not None, "diar_loaded": _state["diar"] is not None,
@@ -876,6 +888,38 @@ def job_status(job_id: str) -> dict:
                 seen[raw] = {"label": letter, "raw": raw, "name": raw_names.get(raw) or ""}
         out["speakers"] = list(seen.values())
     return out
+
+
+@app.get("/download")
+def download_all(fmt: str = "srt") -> Response:
+    """Все готовые результаты одним zip-архивом (имена = имена исходных файлов)."""
+    import io
+    import zipfile
+    buf = io.BytesIO()
+    n = 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        for j in _jobs.values():
+            if j.get("status") != "done":
+                continue
+            try:
+                body, _mime, ext = render(j["result"], fmt)
+            except Exception:      # noqa: BLE001 - один битый результат не должен ломать архив
+                continue
+            stem = re.sub(r"[^\w.-]+", "_", Path(j["name"]).stem)[:48] or "transcript"
+            z.writestr(f"{stem}.{n:03d}.{ext}", body)
+            n += 1
+    if not n:
+        raise HTTPException(409, detail={"error": {"message": "готовых задач нет",
+                                                   "type": "invalid_request_error"}})
+    return Response(buf.getvalue(), media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="transcripts.zip"'})
+
+
+@app.api_route("/jobs/{job_id}/download", methods=["GET", "HEAD"])
+def job_download(job_id: str, fmt: str = "srt", format: str = ""):
+    """Старое/прямое имя ссылки: ?fmt= вместо ?format=. Нужено, чтобы вкладки,
+    открытые до переименования параметра, продолжали скачивать."""
+    return job_result(job_id, format or fmt)
 
 
 @app.api_route("/jobs/{job_id}/result", methods=["GET", "HEAD"])
