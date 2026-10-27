@@ -39,7 +39,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const LS = 'wx.ui.v3';
-const UI_VER = '1.6.0';   // синхронно с ?v= в index.html
+const UI_VER = '1.7.1';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -173,8 +173,7 @@ function render() {
           <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span></div>
           <div class="rowmeta">
             ${info ? `<div class="sub">${info}</div>` : ''}
-            <div class="meta"><span class="dur">${fmtDur(j.duration ?? s.duration)}</span>
-              <span class="pill ${j.type || ''}">${esc(j.type || '?')}</span></div>
+            <div class="meta"><span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="pill ${j.type || ''}">${esc(j.type || '?')}</span></div>
           </div>
           ${res}
         </td>

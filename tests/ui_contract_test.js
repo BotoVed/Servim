@@ -73,5 +73,15 @@ ok(/\.tw\{height:auto;min-height:240px;max-height:none;flex:1 1 auto\}/.test(css
 ok(/\.wrap\{display:flex;flex-direction:column;min-height:calc\(100vh/.test(css), 'карточка занимает высоту экрана');
 ok(/html,body\{height:100%\}/.test(css), 'html/body заданы в 100%');
 
+
+/* 9. v1.7.1: длительность и тип — одной строкой; подсказки без вложенных тегов */
+ok(/<div class="meta"><span class="dur">[\s\S]{0,140}?<span class="pill /.test(js)
+     && !/<span class="pill[\s\S]{0,140}?<\/div>[\s\S]{0,80}?<span class="dur/.test(js),
+  'длительность и тип на одной строке (один <div class="meta">, без </div> между ними)');
+const tips = [...html.matchAll(/data-tip="([^"]*)"/g)].map(m => m[1]);
+ok(tips.length >= 10 && !tips.some(t => /[<>]/.test(t)), 'подсказки кнопок — чистый текст без тегов (' + tips.length + ' шт.)');
+ok(/\.tbtn\[data-tip\]::after\{[\s\S]{0,320}?transition-delay:1s/.test(css), 'у кнопок панели подсказка через 1 с');
+ok(/\.dl\[data-tip\][^{]*\{[^}]*transition-delay:1s/.test(css), 'у пилюль подсказка через 1 с');
+
 console.log(fail.length ? '\nФАЙЛОВ: ' + fail.length + '\n - ' + fail.join('\n - ') : '\nконтракт в порядке');
 process.exit(fail.length ? 1 : 0);

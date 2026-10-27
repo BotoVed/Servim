@@ -347,6 +347,18 @@ h2{display:none}
 .c-spk{width:86px}
 /* пилюли формата — все в одну строку, «…» больше не нужен */
 .dls{flex-wrap:wrap;overflow:visible}
+
+/* ==================================================== v1.7.1 */
+/* кнопки панели: подсказка без вложенных тегов, показ после секунды удержания */
+.tbtn{position:relative}
+.tbtn[data-tip]::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);
+  transform:translate(-50%,4px);background:#0b1615;color:#dff7f3;border:1px solid var(--line2);
+  border-radius:5px;padding:5px 9px;font:500 11px/1.35 inherit;white-space:nowrap;opacity:0;
+  pointer-events:none;transition:opacity .12s;transition-delay:1s;z-index:46}
+.tbtn[data-tip]:hover::after{opacity:1;transform:translate(-50%,0)}
+.tbtn:disabled[data-tip]:hover::after{opacity:0}
+/* пилюли — та же задержка в секунду */
+.dl[data-tip]::after,.dl[data-tip]:hover::after{transition-delay:1s}
 .dlx{display:inline-flex}
 .dl.more{display:none}
 @media (min-width:900px){.dlx{display:inline-flex}.dl.more{display:none}}
@@ -364,6 +376,6 @@ html,body{height:100%}
 .sheet select,.sheet input{width:100%}
 @media (max-width:780px){
   .rowmeta{flex-wrap:wrap}
-  .meta{margin-left:0}
+  .meta{margin-left:0;flex-wrap:nowrap}
   .wrap{min-height:calc(100vh - 20px)}
 }
