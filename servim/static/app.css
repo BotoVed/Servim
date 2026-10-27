@@ -356,9 +356,14 @@ h2{display:none}
   border-radius:5px;padding:5px 9px;font:500 11px/1.35 inherit;white-space:nowrap;opacity:0;
   pointer-events:none;transition:opacity .12s;transition-delay:1s;z-index:46}
 .tbtn[data-tip]:hover::after{opacity:1;transform:translate(-50%,0)}
-.tbtn:disabled[data-tip]:hover::after{opacity:0}
 /* пилюли — та же задержка в секунду */
 .dl[data-tip]::after,.dl[data-tip]:hover::after{transition-delay:1s}
+
+/* ==================================================== v1.7.2 */
+/* у верхней панели подсказка рисуется ПОД кнопкой: над кнопкой её обрезает .card{overflow:hidden} */
+header .icobtn[data-tip]::after,.tools .tbtn[data-tip]::after{bottom:auto;top:calc(100% + 8px);transform:translate(-50%,0)}
+header .icobtn[data-tip]:hover::after,.tools .tbtn[data-tip]:hover::after{transform:translate(-50%,0)}
+/* у неактивных кнопок подсказку тоже показываем — чтобы было видно, почему нельзя */
 .dlx{display:inline-flex}
 .dl.more{display:none}
 @media (min-width:900px){.dlx{display:inline-flex}.dl.more{display:none}}

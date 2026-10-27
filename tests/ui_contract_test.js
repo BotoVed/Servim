@@ -83,5 +83,11 @@ ok(tips.length >= 10 && !tips.some(t => /[<>]/.test(t)), 'подсказки к�
 ok(/\.tbtn\[data-tip\]::after\{[\s\S]{0,320}?transition-delay:1s/.test(css), 'у кнопок панели подсказка через 1 с');
 ok(/\.dl\[data-tip\][^{]*\{[^}]*transition-delay:1s/.test(css), 'у пилюль подсказка через 1 с');
 
+
+/* 9b. v1.7.2: у верхней панели подсказка рисуется под кнопкой (над — обрезает .card{overflow:hidden}); у неактивных кнопок показывается */
+ok(/header \.icobtn\[data-tip\]::after,\.tools \.tbtn\[data-tip\]::after\{bottom:auto;top:calc\(100% \+ 8px\)/.test(css),
+  'у верхней панели подсказка рисуется под кнопкой');
+ok(!/tbtn:disabled\[data-tip\]:hover::after\{opacity:0\}/.test(css), 'у неактивных кнопок подсказка не прячется');
+
 console.log(fail.length ? '\nФАЙЛОВ: ' + fail.length + '\n - ' + fail.join('\n - ') : '\nконтракт в порядке');
 process.exit(fail.length ? 1 : 0);
