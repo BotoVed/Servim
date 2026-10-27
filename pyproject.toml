@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "servim"
+version = "0.1.0"
+description = "Self-hosted WhisperX transcription server: OpenAI-compatible API, speaker diarization, task queue and web UI"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "BotoVed" }]
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn[standard]>=0.29",
+  "python-multipart>=0.0.9",
+  "whisperx>=3.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/BotoVed/Servim"
+
+[project.scripts]
+servim = "servim.server:main"
+
+[tool.setuptools.packages.find]
+include = ["servim*"]
+
+[tool.setuptools.package-data]
+servim = ["static/*"]
