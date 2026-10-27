@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=1.5.0">
+<link rel="stylesheet" href="./app.css?v=1.6.0">
 </head>
 <body>
 <header>
@@ -12,6 +12,19 @@
   <span class="grow"></span>
   <button class="icobtn" id="gear" data-tip="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1.1A1.6 1.6 0 0 0 4.6 15H4.4a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 12 5.6a1.6 1.6 0 0 0 1.5-1.1V4.4a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1z"/></svg></button>
   <div class="sheet" id="cfg" hidden>
+    <h3>Как распознаём</h3>
+    <label class="fld"><span>Модель</span><select id="model"></select></label>
+    <label class="fld"><span>Язык аудио</span><select id="lang">
+      <option value="">определить самому</option><option value="ru">русский</option>
+      <option value="en">английский</option><option value="uk">украинский</option>
+      <option value="de">немецкий</option><option value="es">испанский</option>
+      <option value="fr">французский</option><option value="tr">турецкий</option>
+      <option value="zh">китайский</option></select></label>
+    <label class="fld"><span>Спикеров не больше</span><select id="maxs">
+      <option value="авто">сколько надо</option><option value="1">1</option><option value="2">2</option>
+      <option value="3">3</option><option value="4">4</option><option value="5">5</option>
+      <option value="6">6</option><option value="8">8</option></select></label>
+    <p class="hintx">Применяется к новым загружаемым файлам.</p>
     <h3>Подключение</h3>
     <label class="fld"><span>Адрес сервера</span><input id="c_url" type="text" placeholder="http://192.168.10.149:8090/" spellcheck="false"></label>
     <label class="fld"><span>API key</span><input id="c_key" type="password" placeholder="пока не требуется" spellcheck="false"></label>
@@ -42,39 +55,22 @@
       <button class="tbtn" id="selpall" data-tip="Отметить все задачи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></button>
       <button class="tbtn" id="selnone" data-tip="Снять все отметки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></button>
 
+      <button class="tbtn" id="edit" disabled data-tip="Открыть результат выбранной задачи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
+
       <span class="sep"></span>
 
-      <!-- параметры новых задач: переключатели и выпадающие списки -->
-      <button class="tbtn tgl" data-flag="diarize" aria-pressed="true" data-tip="Диаризация — разделить, кто что сказал">голоса</button>
-      <button class="tbtn tgl" data-flag="vad_filter" aria-pressed="true" data-tip="VAD — вырезать тишину (быстрее и меньше галлюцинаций)">тишина</button>
-      <button class="tbtn tgl" data-flag="word_timestamps" aria-pressed="true" data-tip="Таймкод на каждое слово">слова</button>
-      <select id="model" aria-label="модель" data-tip="Модель распознавания"></select>
-      <select id="lang" aria-label="язык" data-tip="Язык аудио; «авто» — определить самому">
-        <option value="">авто</option><option value="ru">русский</option><option value="en">английский</option>
-        <option value="uk">украинский</option><option value="de">немецкий</option><option value="es">испанский</option>
-        <option value="fr">французский</option><option value="tr">турецкий</option><option value="zh">китайский</option>
-      </select>
-      <select id="maxs" aria-label="спикеров не больше" data-tip="Спикеров не больше">
-        <option value="авто">спикеров: авто</option>
-        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-        <option value="8">8</option>
-      </select>
-      <span class="count" id="cnt"></span>
+      <!-- параметры новых задач: те же кнопки-пиктограммы, зелёные когда включены -->
+      <button class="tbtn tgl" data-flag="diarize" aria-pressed="true" data-tip="Диаризация — разделить, кто что сказал"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11v2M8 8v8M12 4.5v15M16 8v8M20 11v2"/></svg><i class="badge g" id="n_diarize"></i></button>
+      <button class="tbtn tgl" data-flag="vad_filter" aria-pressed="true" data-tip="VAD — вырезать тишину: быстрее и меньше выдуманных фраз"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v16"/><path d="M8 7v10M4 9.5v5M16 7v10M20 9.5v5"/><path d="M3 3l18 18" class="slash"/></svg></button>
+      <button class="tbtn tgl" data-flag="word_timestamps" aria-pressed="true" data-tip="Таймкод на каждое слово"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h13"/><path d="M18.5 14.5v6M16 18h5"/></svg></button>
       </div>
 
-    <div class="mob-sel">
-      <select data-mirror="model"></select><select data-mirror="lang"></select><select data-mirror="maxs"></select>
-    </div>
-
     <!-- ==================================================== таблица -->
-    <div class="tw" id="tw" style="--rows:5">
+    <div class="tw" id="tw">
       <table>
         <thead><tr>
           <th class="c-st"><label class="ck" data-tip="выделить все"><input type="checkbox" id="all" aria-label="выделить все"></label></th>
           <th class="c-file">Файл</th>
-          <th class="c-type">Тип</th>
-          <th class="c-dur">Длит.</th>
           <th class="c-spk">Спикеров</th>
         </tr></thead>
         <tbody id="tb"><tr><td colspan="6" class="empty">загрузка…</td></tr></tbody>
@@ -98,16 +94,16 @@
     </div>
 
     <div class="tip">
+      <b class="count here" id="cnt"></b>
       <span>перетащи файл на таблицу</span>
-      <span>двойной клик по строке — открыть результат</span>
+      <span>двойной клик по названию — открыть результат</span>
       <span><kbd>Del</kbd> — удалить выбранное</span>
       <span id="mh" style="display:none">долгое нажатие — удалить</span>
-      <span id="keepnote" class="mut">аудио не храним: после удаления результата файл нужно загрузить заново</span>
     </div>
   </div>
 </div>
 
-<script src="./app.js?v=1.5.0"></script>
+<script src="./app.js?v=1.6.0"></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">

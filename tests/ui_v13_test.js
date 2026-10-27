@@ -42,8 +42,8 @@ ok(/class="dls"/.test(t1), 'под именем файла есть ряд пи�
 ['stxt', 'md', 'vtt'].forEach(f =>
   ok(new RegExp('class="dl" href="[^"]*format=' + f + '"[^>]*>' + f + '</a>').test(t1),
     'видимая пилюля .' + f + ' (первыми тремя)'));
-ok((t1.match(/class="dl dlx"/g) || []).length === 4, 'остальные форматы (srt,txt,tsv,json) — скрытые пилюли (.dlx)');
-ok((t1.match(/data-k="dlmore"/g) || []).length === 1, 'есть ровно одна пилюля «…»');
+ok((t1.match(/class="dl "/g) || []).length + (t1.match(/class="dl"/g) || []).length === 7, 'все 7 форматов — видимыми пилюлями');
+ok(!/dlmore|class="dl more"/.test(t1), 'пилюли «…» больше нет');
 ok(!/data-k="kdl"|pickmask/.test(t1), 'кнопки с меню выбора формата больше нет');
 ok(t1.indexOf('class="dl"') > t1.indexOf('class="file"'), 'пилюли идут ПОСЛЕ имени файла (в той же ячейке)');
 ok(/href="[^"]*jobs\/t1\/result\?format=stxt"/.test(t1), 'пилюля ведёт на /jobs/{id}/result?format=');

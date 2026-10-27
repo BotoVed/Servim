@@ -39,7 +39,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const LS = 'wx.ui.v3';
-const UI_VER = '1.5.0';   // синхронно с ?v= в index.html
+const UI_VER = '1.6.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -158,14 +158,11 @@ function render() {
       const TIP = { json: 'полный JSON', txt: 'текст без разметки', srt: 'субтитры SRT',
         vtt: 'субтитры WebVTT', tsv: 'таблица TSV', md: 'Markdown', stxt: 'Super TXT',
         keywords: 'ключевые слова', summary: 'выжимка' };
-      const DLP = ['stxt', 'md', 'vtt'];
       const dls = (S.formats && S.formats.length ? S.formats : ['stxt', 'md', 'vtt', 'srt', 'txt', 'json', 'tsv', 'diarized_json'])
         .filter(f => EXPORT.includes(f));
       const pill = (f, hide) => `<a class="dl${hide ? ' dlx' : ''}" href="${dlUrl(j.id, f)}" data-tip="скачать .${f}">${f}</a>`;
-      const head = dls.filter(f => DLP.includes(f)), tail = dls.filter(f => !DLP.includes(f));
       const res = j.status === 'done'
-        ? `<div class="dls">${head.map(f => pill(f, 0)).join('')}${tail.length
-            ? `<button class="dl more" data-k="dlmore" data-tip="и ещё ${tail.length} форматов">…</button>${tail.map(f => pill(f, 1)).join('')}` : ''}</div>`
+        ? `<div class="dls">${dls.map(f => pill(f, 0)).join('')}</div>`
         : `<div class="dls"><span class="dl ph" data-tip="${j.status === 'error' ? 'ошибка обработки — запусти заново'
             : isLive(j) ? 'появится, когда закончится обработка' : 'запусти обработку — и здесь появятся файлы'}">…</span></div>`;
       return `<tr data-id="${j.id}" tabindex="0" class="${j.status === 'running' ? 'running' : ''} ${S.sel === j.id ? 'sel' : ''} ${S.picked.has(j.id) ? 'pick' : ''}">
@@ -174,16 +171,21 @@ function render() {
             title="${j.status === 'done' ? 'открыть результат' : (LABEL[j.status] || j.status)}">${ICON[j.status] || ICON.plan}</span></td>
         <td class="c-file">
           <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span></div>
-          ${info ? `<div class="sub">${info}</div>` : ''}
+          <div class="rowmeta">
+            ${info ? `<div class="sub">${info}</div>` : ''}
+            <div class="meta"><span class="dur">${fmtDur(j.duration ?? s.duration)}</span>
+              <span class="pill ${j.type || ''}">${esc(j.type || '?')}</span></div>
+          </div>
           ${res}
         </td>
-        <td class="c-type"><span class="pill ${j.type || ''}">${esc(j.type || '?')}</span></td>
-        <td class="c-dur" data-l="длит.">${fmtDur(j.duration ?? s.duration)}</td>
         <td class="c-spk"><span class="spk-n ${s.speakers ? '' : 'zero'}">${s.speakers || '—'}</span></td>
       </tr>`;
     }).join('');
   }
 
+  const nd = $('#n_diarize');
+  if (nd) { const k = S.jobs.filter(j => (j.summary || {}).speakers).length;
+            nd.textContent = k ? k : ''; }
   const n = S.jobs.length, run = S.jobs.filter(isLive).length;
   const plan = S.jobs.filter(j => j.status === 'plan').length, ready = S.jobs.filter(j => j.status === 'done').length;
   $('#cnt').textContent = `${n} · ${plural(n, 'задача', 'задачи', 'задач')}`;
@@ -196,6 +198,9 @@ function render() {
   const all = $('#all');
   if (all) { all.checked = n > 0 && S.picked.size >= n; all.disabled = !n;
              all.indeterminate = S.picked.size > 0 && S.picked.size < n; }
+  const ed = $('#edit');
+  ed.disabled = !(S.sel && (S.jobs.find(j => j.id === S.sel) || {}).status === 'done');
+  ed.dataset.tip = ed.disabled ? 'сначала выбери готовую задачу (клик по строке)' : 'открыть результат выбранной задачи';
   const inFlight = (S.queue.queued || []).length;
   $('#start').disabled = !(plan > 0 || inFlight > 0);
   $('#stop').disabled = !(S.health.busy || inFlight > 0);
@@ -344,14 +349,8 @@ function restore() {
   const d = store();
   $$('[data-flag]').forEach(b => b.setAttribute('aria-pressed', String(!!d[b.dataset.flag])));
 }
-function mirror() {
-  $$('.mob-sel select').forEach(m => {
-    const src = $('#' + m.dataset.mirror);
-    if (!src) return;
-    m.innerHTML = src.innerHTML; m.value = src.value;
-    m.onchange = () => { src.value = m.value; src.dispatchEvent(new Event('change')); };
-  });
-}
+/* мобильные зеркала убраны: модель/язык/спикеры живут в окне настроек */
+function mirror() {}
 
 /* --------------------------------------------------------------------- поллинг */
 let UI_STAMP = null;
@@ -409,19 +408,21 @@ function wire() {
   });
   const openRow = (tr) => { S.sel = S.openId = tr.dataset.id; render(); show(S.openId); };
 
-  $('#tb').addEventListener('click', (e) => {      // «…» раскрывает остальные форматы
-    const b = e.target.closest('[data-k="dlmore"]'); if (!b) return;
-    e.preventDefault(); e.stopPropagation();
-    b.closest('.dls').classList.toggle("open");
-  });
   const reload = () => { loadHealth().then(() => loadJobs()).catch(() => {}); };
-  $('#tb').addEventListener('dblclick' , (e) => {   // двойной — открыть результат
+  $('#edit').onclick = () => {
+    const j = S.jobs.find(x => x.id === S.sel);
+    if (!j) return toast('сначала выбери задачу — клик по строке');
+    if (j.status !== 'done') return toast('результата ещё нет — запусти обработку');
+    S.openId = j.id; render(); show(j.id);
+  };
+  $('#tb').addEventListener('dblclick' , (e) => {   // двойной по НАЗВАНИЮ — открыть результат
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
+    if (!e.target.closest('.file')) return;         // по пилюлям и прочему — не открываем
     openRow(tr);
   });
   $('#tb').addEventListener('click', (e) => {      // кнопка в колонке «Результат» — то же
-    if (!e.target.closest('[data-open]')) return;
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
+    if (!e.target.closest('[data-open]')) return;
     e.stopPropagation(); openRow(tr);
   });
   $('#tb').addEventListener('keydown', (e) => {
@@ -448,7 +449,9 @@ function wire() {
     const show = () => { const c = cfg(); Object.keys(fields).forEach(k => { if (fields[k]) fields[k].value = c[k] || ''; }); };
     const save = () => { const c = {}; Object.keys(fields).forEach(k => { if (fields[k] && fields[k].value) c[k] = fields[k].value.trim(); });
       localStorage.setItem(CFG_KEY, JSON.stringify(c));
-      const u = (c.url || '').trim().replace(/\/+$/, ''); EP = u ? u + '/' : EP0; };
+      const u = (c.url || '').trim().replace(/\/+$/, ''); EP = u ? u + '/' : EP0;
+      saveStore();   // модель/язык/спикеры помнятся между визитами
+      $$('#cfg select').forEach(sel => sel.onchange = save); };
     Object.values(fields).forEach(el => el && el.addEventListener('change', save));
     $('#gear').onclick = () => { show(); if (sheet.hidden) openCfg(); else sheet.hidden = true; };
     $('#c_ok').onclick = () => { save(); sheet.hidden = true; reload(); };
@@ -483,7 +486,7 @@ function wire() {
     if (matchMedia('(hover:none)').matches) $('#mh').style.display = '';
     if (S.jobs.some(isLive) || S.health.busy) poll(); else render();
   } catch (e) {
-    $('#tb').innerHTML = `<tr><td colspan="6" class="empty">сервис недоступен: ${esc(e.message)}`
+    $('#tb').innerHTML = `<tr><td colspan="4" class="empty">сервис недоступен: ${esc(e.message)}`
       + `<br><button class="tbtn" id="cfgopen">открыть настройки</button> — проверь адрес сервера</td></tr>`;
     const b = $('#cfgopen'); if (b) b.onclick = () => openCfg('сервер не отвечает — проверь адрес');
     openCfg('сервер не отвечает: ' + e.message);   // пустой экран без объяснений — худший вариант

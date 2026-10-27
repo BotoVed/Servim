@@ -733,11 +733,14 @@ async def translations(file: UploadFile = File(...), model: str = Form(...),
 # --------------------------------------------------------------------------- UI API
 
 def _ui_stamp() -> int:
-    """Штамп версии интерфейса: mtime app.js. Фронт сравнивает его с тем, что загрузил,
-    и сам перезагружает страницу после обновления сервера — иначе во вкладке остаётся
-    старый JS и кнопки ведут себя по-старому."""
+    """Штамп версии интерфейса: самый свежий mtime среди статики. Фронт сравнивает его
+    с тем, что загрузил, и сам перезагружает страницу после обновления сервера — иначе во
+    вкладке остаётся старый JS/HTML и кнопки ведут себя по-старому. Смотрим по всем
+    файлам: правка только index.html раньше штамп не двигала."""
     try:
-        return int((STATIC_DIR / "app.js").stat().st_mtime)
+        stamps = [int((STATIC_DIR / n).stat().st_mtime)
+                  for n in ("app.js", "index.html", "app.css") if (STATIC_DIR / n).exists()]
+        return max(stamps) if stamps else 0
     except OSError:
         return 0
 
