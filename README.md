@@ -8,8 +8,9 @@ OpenAI-совместимый API, диаризацияспикеров, тай�
 > word-level timestamps, speaker diarization, a task queue and a small web UI. MIT.
 
 ```bash
-pip install servim
-servim                      # http://localhost:8090
+git clone https://github.com/BotoVed/Servim.git && cd Servim
+pip install -e .                       # зависимости: fastapi, uvicorn, whisperx
+servim                                 # http://localhost:8090
 ```
 
 ```bash
@@ -51,9 +52,12 @@ WhisperX сам по себе — CLI и библиотека: нет очере
 
 ```bash
 python3 -m venv .venv && . .venv/bin/activate
-pip install servim                 # ядро (fastapi + uvicorn + whisperx)
-pip install "pyannote.audio>=3.1" # только если нужна диаризация
+pip install -e .                      # fastapi + uvicorn + whisperx (тянет torch)
+pip install "pyannote.audio>=3.1"    # только если нужна диаризация
 ```
+
+`whisperx` — единственная тяжёлая зависимость (torch, ctranslate2); сама обёртка — один модуль
+и три статических файла.
 
 Запуск:
 
@@ -115,7 +119,10 @@ WantedBy=multi-user.target
 
 ### Форматы ответа
 
-`json` · `verbose_json` (со словами) · `diarized_json` · `text` · `txt` · `srt` · `vtt` · `tsv` · `md` · `stxt`.
+`json` · `verbose_json` (со словами) · `diarized_json` · `text` · `txt` · `srt` · `vtt` · `tsv` · `md`.
+
+Отдельно `stxt` — наш собственном диалект «одна строка на сегмент» (`Start:/End:/Line:`); это **не**
+распространённый формат, ни один внешний плеер его не читает.
 
 В субтитрные форматы (`srt`, `vtt`) и в `md` именаспикеров попадают в виде префикса строки —
 `[Иван] текст`. В `tsv` появилась колонка `speaker`. В `json`/`verbose_json`спикер остаётся меткой
