@@ -12,7 +12,7 @@ const mkEnv = (store) => {
     disabled: false, className: '', dataset: {}, files: [], checked: false, children: [],
     style: { setProperty() {} },
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-    addEventListener() {}, append(...a) { this.children.push(...a); },
+    addEventListener() {}, appendChild() {}, append(...a) { this.children.push(...a); },
     querySelector: () => mk('div'), querySelectorAll: () => [], closest: () => null,
     focus() {}, setPointerCapture() {}, releasePointerCapture() {} });
   const $ = (s) => (els[s] ||= mk(s.includes('table') ? 'table' : 'div'));
@@ -88,7 +88,7 @@ ok(/@media \(min-width:900px\)\{\.dlx\{display:inline-flex\}\.dl\.more\{display:
   'на широком экране все пилюли в ряд, «…» прячется');
 ok(/\.tw\{--rows:9/.test(css) && /height:clamp\(300px,72vh/.test(css), 'таблица выше (9 строк / 72vh)');
 ok(/header\{position:sticky/.test(css), 'заголовок страницы приклеен к верху');
-ok(/transition-delay:1s/.test(css), 'тултипы всплывают через секунду');
+ok(/setTimeout\([\s\S]{0,90}, *1000\)/.test(src) && /\.jtip\{position:fixed/.test(css), 'тултипы всплывают через секунду');
 
 /* ---------- панель настроек работает ---------- */
 ok(src.includes("CFG_KEY = 'servim.cfg'") && src.includes('authHeaders'),

@@ -12,7 +12,7 @@ const mkEnv = () => {
     disabled: false, className: '', dataset: {}, files: [], checked: false, children: [],
     style: { setProperty() {} },
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-    addEventListener() {}, append(...a) { this.children.push(...a); },
+    addEventListener() {}, appendChild() {}, append(...a) { this.children.push(...a); },
     querySelector: () => mk('div'), querySelectorAll: () => [], closest: () => null,
     focus() {}, setPointerCapture() {}, releasePointerCapture() {} });
   const $ = (s) => (els[s] ||= mk(s.includes('table') ? 'table' : 'div'));

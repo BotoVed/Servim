@@ -25,9 +25,9 @@ ok(n(/api\('/g) === 0 && n(/api\(EP \+/g) >= 10,
    `все вызовы API через EP: через EP ${n(/api\(EP \+/g)}, абсолютных ${n(/api\('\/[a-z]/g)}`);
 
 /* Хинт: задержка ровно 1 с и только на наведении (CSS: transition-delay) */
-ok(/\.fp\[data-tip\]:hover::after\{[^}]*transition-delay:1s/.test(css),
-   'задержка хинта = 1 с (.fp[data-tip]:hover::after transition-delay)');
-ok(/\.fp\[data-tip\]::after\{[^}]*opacity:0/.test(css), 'хинт скрыт до наведения');
+ok(/setTimeout\([\s\S]{0,90}, *1000\)/.test(src), 'задержка хинта = 1 с (setTimeout 1000)');
+ok(/tip\.hidden = true/.test(src), 'хинт скрыт до наведения');
+ok(!/\[data-tip\]::after/.test(css), 'CSS-тултипов ::after больше нет — один плавающий .jtip');
 
 /* скачивание — пилюлями; плейсхолдер той же класс-схемы; подпись — в data-tip */
 ok(/const pill = \(f, hide\) =>/.test(src), 'пилюля собирается одной функцией');

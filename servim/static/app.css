@@ -141,13 +141,6 @@ td.c-st{display:flex;align-items:center;justify-content:center;gap:5px}
   border:1px solid var(--line2);color:#9db3ae;border-radius:var(--r2);text-decoration:none;transition:.14s}
 a.fp:hover{color:var(--acc-ink);background:var(--acc);border-color:var(--acc)}
 .fp.ph{opacity:.42;cursor:default}
-/* хинт по наведению с задержкой 1 с (чистый CSS: transition-delay) */
-.fp[data-tip]::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 7px);
-  transform:translate(-50%,4px);white-space:nowrap;padding:4px 9px;font:500 11px/1.35 var(--f-mono);
-  letter-spacing:0;text-transform:none;color:#cfe0db;background:#0b1416;border:1px solid var(--line2);
-  border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.5);opacity:0;pointer-events:none;z-index:9;
-  transition:opacity .12s ease,transform .12s ease;transition-delay:0s}
-.fp[data-tip]:hover::after{opacity:1;transform:translate(-50%,0);transition-delay:1s}
 .dl{display:flex;gap:5px;flex-wrap:wrap}
 .dl a{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;font-size:10.5px;font-weight:700;
   letter-spacing:.5px;text-transform:uppercase;background:#121b1d;border:1px solid var(--line2);
@@ -291,11 +284,6 @@ kbd{background:#121b1d;border:1px solid var(--line2);border-radius:4px;padding:0
   background:none;border:1px solid var(--line);border-radius:var(--r2);color:var(--mut);cursor:pointer;transition:.14s}
 .icobtn:hover{color:var(--fg);border-color:var(--acc)}
 .icobtn svg{width:17px;height:17px}
-.icobtn[data-tip]::after,.dl[data-tip]::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 7px);
-  transform:translate(-50%,4px);background:#0b1615;color:#dff7f3;border:1px solid var(--line2);border-radius:5px;
-  padding:5px 8px;font:500 11px/1.35 inherit;white-space:nowrap;opacity:0;pointer-events:none;
-  transition:opacity .12s;transition-delay:1s;z-index:40}
-.icobtn[data-tip]:hover::after,.dl[data-tip]:hover::after{opacity:1;transform:translate(-50%,0)}
 .sheet{position:absolute;right:10px;top:52px;z-index:45;width:min(330px,calc(100vw - 20px));padding:14px;text-align:left;
   background:#0d1a19;border:1px solid var(--line2);border-radius:var(--r);box-shadow:0 18px 44px -18px #000}
 .sheet h3{margin:2px 0 8px;font:650 10.5px/1 inherit;letter-spacing:.07em;text-transform:uppercase;color:var(--mut)}
@@ -348,22 +336,15 @@ h2{display:none}
 /* пилюли формата — все в одну строку, «…» больше не нужен */
 .dls{flex-wrap:wrap;overflow:visible}
 
-/* ==================================================== v1.7.1 */
-/* кнопки панели: подсказка без вложенных тегов, показ после секунды удержания */
+/* ==================================================== v1.7.3 */
+/* плавающий тултип: один на страницу, живёт в <body>, позиционируется fixed — его не обрезает
+   .card{overflow:hidden} и он не перекрывает шапку таблицы; рисуется НАД кнопкой,
+   если сверху нет места — ПОД; появляется после секунды удержания (логика в app.js) */
 .tbtn{position:relative}
-.tbtn[data-tip]::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 8px);
-  transform:translate(-50%,4px);background:#0b1615;color:#dff7f3;border:1px solid var(--line2);
-  border-radius:5px;padding:5px 9px;font:500 11px/1.35 inherit;white-space:nowrap;opacity:0;
-  pointer-events:none;transition:opacity .12s;transition-delay:1s;z-index:46}
-.tbtn[data-tip]:hover::after{opacity:1;transform:translate(-50%,0)}
-/* пилюли — та же задержка в секунду */
-.dl[data-tip]::after,.dl[data-tip]:hover::after{transition-delay:1s}
-
-/* ==================================================== v1.7.2 */
-/* у верхней панели подсказка рисуется ПОД кнопкой: над кнопкой её обрезает .card{overflow:hidden} */
-header .icobtn[data-tip]::after,.tools .tbtn[data-tip]::after{bottom:auto;top:calc(100% + 8px);transform:translate(-50%,0)}
-header .icobtn[data-tip]:hover::after,.tools .tbtn[data-tip]:hover::after{transform:translate(-50%,0)}
-/* у неактивных кнопок подсказку тоже показываем — чтобы было видно, почему нельзя */
+.jtip{position:fixed;left:0;top:0;z-index:80;max-width:72vw;pointer-events:none;background:#0b1615;
+  color:#dff7f3;border:1px solid var(--line2);border-radius:5px;padding:5px 9px;font:500 11px/1.35 inherit;
+  white-space:nowrap;box-shadow:0 8px 22px rgba(0,0,0,.55)}
+.jtip[hidden]{display:none}
 .dlx{display:inline-flex}
 .dl.more{display:none}
 @media (min-width:900px){.dlx{display:inline-flex}.dl.more{display:none}}

@@ -38,8 +38,33 @@ const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+/* плавающий тултип: один на страницу; текст — из data-tip; показ после 1 с удержания */
+const tip = document.createElement('div'); tip.className = 'jtip'; tip.hidden = true;
+document.body.appendChild(tip);
+let hoverEl = null, tipEl = null, tipT = 0;
+const tipShow = (el) => { tipEl = el; tip.textContent = el.getAttribute('data-tip'); tip.hidden = false;
+  const r = el.getBoundingClientRect(), tr = tip.getBoundingClientRect();
+  tip.style.left = Math.max(8, Math.min(r.left + r.width / 2 - tr.width / 2,
+    (window.innerWidth || 800) - tr.width - 8)) + 'px';
+  let y = r.top - tr.height - 8;            // сначала пробуем над кнопкой
+  if (y < 8) y = r.bottom + 8;              // сверху нет места — рисуем под
+  tip.style.top = y + 'px'; };
+const tipHide = () => { tipEl = null; hoverEl = null; tip.hidden = true; clearTimeout(tipT); };
+document.addEventListener('pointerover', (e) => {
+  const t = e.target && e.target.closest && e.target.closest('[data-tip]');
+  if (!t || e.pointerType === 'touch' || hoverEl === t) return;
+  hoverEl = t; clearTimeout(tipT);
+  tipT = setTimeout(() => { if (hoverEl === t) tipShow(t); }, 1000);
+}, true);
+document.addEventListener('pointerout', (e) => {
+  const t = e.target && e.target.closest && e.target.closest('[data-tip]');
+  if (!t || (e.relatedTarget && t.contains(e.relatedTarget))) return;
+  tipHide();
+}, true);
+document.addEventListener('scroll', tipHide, true);
+
 const LS = 'wx.ui.v3';
-const UI_VER = '1.7.2';   // синхронно с ?v= в index.html
+const UI_VER = '1.7.3';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
