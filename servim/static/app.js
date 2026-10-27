@@ -19,13 +19,27 @@ const cfg = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}
 let EP = EP0;                       // подменяется настройкой «адрес сервера»
 const authHeaders = () => { const c = cfg(); const h = {};
   if (c.key) h.Authorization = 'Bearer ' + c.key; return h; };
-const $ = (s, r = document) => r.querySelector(s);
+const _q = (s, r) => r.querySelector(s);
+const _nowhere = () => { const e = document.createElement('i'); e.dataset.nowhere = '1'; return e; };
+const _lack = new Set();
+/* Если узла нет в разметке — возвращаем пустышку, а не null: иначе одно пропущенное
+   id обрывало wire()/render() и страница зависала на «загрузка…» без единой ошибки. */
+const $ = (s, r = document) => {
+  const el = _q(s, r);
+  if (el) return el;
+  if (r === document && !_lack.has(s)) {
+    _lack.add(s);
+    console.warn('нет элемента ' + s + ' — страница старше, чем скрипт');
+    try { toast('на странице нет ' + s + ' — обнови вкладку (Ctrl+Shift+R)'); } catch (e) {}
+  }
+  return _nowhere();
+};
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const LS = 'wx.ui.v3';
-const UI_VER = '1.3.0';   // синхронно с ?v= в index.html
+const UI_VER = '1.5.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -156,7 +170,8 @@ function render() {
             : isLive(j) ? 'появится, когда закончится обработка' : 'запусти обработку — и здесь появятся файлы'}">…</span></div>`;
       return `<tr data-id="${j.id}" tabindex="0" class="${j.status === 'running' ? 'running' : ''} ${S.sel === j.id ? 'sel' : ''} ${S.picked.has(j.id) ? 'pick' : ''}">
         <td class="c-st"><label class="ck" title="отметить"><input type="checkbox" data-ck="${j.id}" ${S.picked.has(j.id) ? 'checked' : ''} tabindex="-1" aria-label="отметить ${esc(j.name)}"></label>
-          <span class="st ${j.status}" title="${LABEL[j.status] || j.status}">${ICON[j.status] || ICON.plan}</span></td>
+          <span class="st ${j.status}" ${j.status === 'done' ? 'data-open="1"' : ''}
+            title="${j.status === 'done' ? 'открыть результат' : (LABEL[j.status] || j.status)}">${ICON[j.status] || ICON.plan}</span></td>
         <td class="c-file">
           <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span></div>
           ${info ? `<div class="sub">${info}</div>` : ''}
@@ -419,6 +434,14 @@ function wire() {
     if (e.key === 'Escape') { if (!$('#askmask').hidden) return; S.openId = null; hideRes(); }
   });
 
+  window.openCfg = function openCfg(why) {
+    const sheet = $('#cfg'); if (!sheet) return;
+    sheet.hidden = false;
+    const w = $('#cfgwhy');
+    if (w) w.textContent = why ? '⚠ ' + why + '. Адрес сервера — первой строкой; значения хранятся только в этом браузере.'
+      : 'Адрес применяется сразу, остальное — когда сервер начнёт их требовать. Значения хранятся только в этом браузере.';
+    const f = $('#c_url'); if (f && why) f.focus();
+  };
   (function settings() {
     const sheet = $('#cfg'); if (!sheet) return;
     const fields = { url: $('#c_url'), key: $('#c_key'), user: $('#c_user'), tok: $('#c_tok') };
@@ -427,7 +450,7 @@ function wire() {
       localStorage.setItem(CFG_KEY, JSON.stringify(c));
       const u = (c.url || '').trim().replace(/\/+$/, ''); EP = u ? u + '/' : EP0; };
     Object.values(fields).forEach(el => el && el.addEventListener('change', save));
-    $('#gear').onclick = () => { show(); sheet.hidden = !sheet.hidden; };
+    $('#gear').onclick = () => { show(); if (sheet.hidden) openCfg(); else sheet.hidden = true; };
     $('#c_ok').onclick = () => { save(); sheet.hidden = true; reload(); };
     $('#c_reset').onclick = () => { fields.url.value = ''; save(); reload(); };
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sheet.hidden = true; });
@@ -460,7 +483,10 @@ function wire() {
     if (matchMedia('(hover:none)').matches) $('#mh').style.display = '';
     if (S.jobs.some(isLive) || S.health.busy) poll(); else render();
   } catch (e) {
-    $('#tb').innerHTML = `<tr><td colspan="6" class="empty">сервис недоступен: ${esc(e.message)}</td></tr>`;
+    $('#tb').innerHTML = `<tr><td colspan="6" class="empty">сервис недоступен: ${esc(e.message)}`
+      + `<br><button class="tbtn" id="cfgopen">открыть настройки</button> — проверь адрес сервера</td></tr>`;
+    const b = $('#cfgopen'); if (b) b.onclick = () => openCfg('сервер не отвечает — проверь адрес');
+    openCfg('сервер не отвечает: ' + e.message);   // пустой экран без объяснений — худший вариант
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { Promise.all([loadJobs(), loadQueue()]).then(render); poll(); } });
 window.addEventListener('focus', () => Promise.all([loadJobs(), loadQueue()]).then(render));

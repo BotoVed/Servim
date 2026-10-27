@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=1.3.0">
+<link rel="stylesheet" href="./app.css?v=1.5.0">
 </head>
 <body>
 <header>
@@ -18,7 +18,7 @@
     <h3>Профиль</h3>
     <label class="fld"><span>Имя пользователя</span><input id="c_user" type="text" placeholder="будет использоваться позже" spellcheck="false"></label>
     <label class="fld"><span>Токен</span><input id="c_tok" type="password" placeholder="будет использоваться позже" spellcheck="false"></label>
-    <p class="hintx">Адрес применяется сразу, остальное — когда сервер начнёт их требовать. Значения хранятся только в этом браузере.</p>
+    <p class="hintx" id="cfgwhy">Адрес применяется сразу, остальное — когда сервер начнёт их требовать. Значения хранятся только в этом браузере.</p>
     <div class="actx"><button class="tbtn" id="c_reset" data-tip="сбросить адрес к адресу этой страницы">Сбросить</button><button class="tbtn pri" id="c_ok" data-tip="закрыть">Готово</button></div>
     <p class="hintx ver2" id="vcopy"></p>
   </div>
@@ -29,7 +29,7 @@
 
     <!-- ================================ панель инструментов -->
     <div class="tools">
-      <button class="tbtn pri" id="add" data-tip="Добавить файлы (можно перетащить на таблицу)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+      <button class="tbtn pri lbl" id="add" data-tip="Выбрать файлы (или перетащить их на таблицу)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="tl">файлы</span></button>
       <input type="file" id="f" multiple hidden accept="audio/*,video/*,.wav,.mp3,.ogg,.m4a,.flac,.aac,.opus,.mp4,.mkv,.webm,.mov">
 
       <button class="tbtn pri" id="start" disabled data-tip="Запустить обработку очереди"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></button>
@@ -41,6 +41,26 @@
       <button class="tbtn danger" id="del" disabled data-tip="Удалить отмеченные задачи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg><i id="ndel" class="badge"></i></button>
       <button class="tbtn" id="selpall" data-tip="Отметить все задачи"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></button>
       <button class="tbtn" id="selnone" data-tip="Снять все отметки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></button>
+
+      <span class="sep"></span>
+
+      <!-- параметры новых задач: переключатели и выпадающие списки -->
+      <button class="tbtn tgl" data-flag="diarize" aria-pressed="true" data-tip="Диаризация — разделить, кто что сказал">голоса</button>
+      <button class="tbtn tgl" data-flag="vad_filter" aria-pressed="true" data-tip="VAD — вырезать тишину (быстрее и меньше галлюцинаций)">тишина</button>
+      <button class="tbtn tgl" data-flag="word_timestamps" aria-pressed="true" data-tip="Таймкод на каждое слово">слова</button>
+      <select id="model" aria-label="модель" data-tip="Модель распознавания"></select>
+      <select id="lang" aria-label="язык" data-tip="Язык аудио; «авто» — определить самому">
+        <option value="">авто</option><option value="ru">русский</option><option value="en">английский</option>
+        <option value="uk">украинский</option><option value="de">немецкий</option><option value="es">испанский</option>
+        <option value="fr">французский</option><option value="tr">турецкий</option><option value="zh">китайский</option>
+      </select>
+      <select id="maxs" aria-label="спикеров не больше" data-tip="Спикеров не больше">
+        <option value="авто">спикеров: авто</option>
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+        <option value="8">8</option>
+      </select>
+      <span class="count" id="cnt"></span>
       </div>
 
     <div class="mob-sel">
@@ -87,7 +107,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=1.3.0"></script>
+<script src="./app.js?v=1.5.0"></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">
