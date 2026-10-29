@@ -62,8 +62,17 @@ SUPPORTED_MODELS = [
 CONTAINERS = {".wav", ".mp3", ".m4a", ".m4b", ".ogg", ".opus", ".flac", ".webm", ".mp4", ".mov",
               ".mkv", ".aac", ".wma", ".mpg", ".mpga", ".mpeg", ".mpeg", ".m4v", ".mka", ".aiff", ".ape"}
 
-app = FastAPI(title="WhisperX ASR", version="1.1.1",
+app = FastAPI(title="WhisperX ASR", version="1.1.2",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
+
+# FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
+# по адресу с //, ломает все запросы. Нормализуем путь до роутинга.
+@app.middleware("http")
+async def collapse_double_slash(request, call_next):
+    p = request.scope.get("path") or ""
+    if "//" in p:
+        request.scope["path"] = re.sub(r"/{2,}", "/", p)
+    return await call_next(request)
 
 # --------------------------------------------------------------------------- состояние
 _state: dict[str, Any] = {"asr_name": None, "asr": None, "diar": None, "align_cache": {},

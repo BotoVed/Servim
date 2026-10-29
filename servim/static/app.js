@@ -13,7 +13,7 @@
 'use strict';
 
 // база относительно документа: работает и с localhost, и за прокси с путём
-const EP0 = location.pathname.replace(/[^/]*$/, '');
+const EP0 = location.pathname.replace(/\/{2,}/g, '/').replace(/[^/]*$/, '');   // страница с // в адресе не должна ломать запросы
 const CFG_KEY = 'servim.cfg';
 const cfg = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch (e) { return {}; } };
 let EP = EP0;                       // подменяется настройкой «адрес сервера»
@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '1.9.0';   // синхронно с ?v= в index.html
+const UI_VER = '1.9.1';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;

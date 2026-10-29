@@ -107,5 +107,9 @@ ok(/const _segs = \$\('#segs'\), _st = _segs\.scrollTop;/.test(js) && /_segs\.sc
 ok(/\.tw::-webkit-scrollbar,\.segs::-webkit-scrollbar\{width:14px/.test(css),
   'скроллбары .tw/.segs — 14px, попадаться мышкой реально');
 
+/* 12. v1.9.1: страница, открытая с // в адресе, не ломает запросы */
+ok(js.includes("location.pathname.replace(/\\/{2,}/g, '/')"),
+  'EP0 схлопывает двойные слэши (//jobs → /jobs)');
+
 console.log(fail.length ? '\nФАЙЛОВ: ' + fail.length + '\n - ' + fail.join('\n - ') : '\nконтракт в порядке');
 process.exit(fail.length ? 1 : 0);
