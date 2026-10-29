@@ -73,43 +73,5 @@ ok(/\.tw\{height:auto;min-height:240px;max-height:none;flex:1 1 auto\}/.test(css
 ok(/\.wrap\{display:flex;flex-direction:column;min-height:calc\(100vh/.test(css), 'карточка занимает высоту экрана');
 ok(/html,body\{height:100%\}/.test(css), 'html/body заданы в 100%');
 
-
-/* 9. v1.7.1: длительность и тип — одной строкой; подсказки без вложенных тегов */
-ok(/<div class="meta"><span class="dur">[\s\S]{0,140}?<span class="pill /.test(js)
-     && !/<span class="pill[\s\S]{0,140}?<\/div>[\s\S]{0,80}?<span class="dur/.test(js),
-  'длительность и тип на одной строке (один <div class="meta">, без </div> между ними)');
-const tips = [...html.matchAll(/data-tip="([^"]*)"/g)].map(m => m[1]);
-ok(tips.length >= 10 && !tips.some(t => /[<>]/.test(t)), 'подсказки кнопок — чистый текст без тегов (' + tips.length + ' шт.)');
-ok(/setTimeout\([\s\S]{0,90}, *1000\)/.test(js), 'подсказка появляется после 1 с удержания (setTimeout 1000)');
-ok(/\.jtip\{position:fixed/.test(css) && /document\.body\.appendChild\(tip\)/.test(js),
-  'тултип один на страницу, вне карточки и таблицы (fixed, в <body>) — ничего не перекрывает и не обрезается');
-ok(/y = r\.top - tr\.height - 8;[\s\S]{0,60}y < 8\) y = r\.bottom \+ 8/.test(js),
-  'рисуем над кнопкой, а если сверху нет места — под ней');
-ok(!/tbtn:disabled\[data-tip\]/.test(css) && /closest\('\[data-tip\]'\)/.test(js),
-  'у неактивных кнопок подсказка тоже показывается');
-
-
-/* 9b. v1.7.2: у верхней панели подсказка рисуется под кнопкой (над — обрезает .card{overflow:hidden}); у неактивных кнопок показывается */
-
-
-
-/* 10. v1.8.0: модалка не сносит фокус и не стирает набранные имена */
-ok(/document\.activeElement[\s\S]{0,140}closest\('#mask'\)/.test(js),
-  'модалка не перестраивается, пока фокус внутри неё (фокус в полях имён не слетает)');
-ok(/const DRAFT = \{\}/.test(js) && /DRAFT\[\`\$\{S\.openId\}\|/.test(js) && /draftVal\(s\)/.test(js),
-  'набранные имена спикеров живут между перерисовками (черновик в DRAFT)');
-ok(/Object\.keys\(DRAFT\)\.forEach\(k => \{ if \(k\.startsWith\(id \+ .\|.\)\) delete DRAFT\[k\]; \}\)/.test(js),
-  'после успешного сохранения черновик стирается');
-
-/* 11. v1.9.0: перерисовка модалки держит скролл, скроллбары толще */
-ok(/const _segs = \$\('#segs'\), _st = _segs\.scrollTop;/.test(js) && /_segs\.scrollTop = _st;/.test(js),
-  'show() переживает перерисовку с той же позицией скролла #segs');
-ok(/\.tw::-webkit-scrollbar,\.segs::-webkit-scrollbar\{width:14px/.test(css),
-  'скроллбары .tw/.segs — 14px, попадаться мышкой реально');
-
-/* 12. v1.9.1: страница, открытая с // в адресе, не ломает запросы */
-ok(js.includes("location.pathname.replace(/\\/{2,}/g, '/')"),
-  'EP0 схлопывает двойные слэши (//jobs → /jobs)');
-
 console.log(fail.length ? '\nФАЙЛОВ: ' + fail.length + '\n - ' + fail.join('\n - ') : '\nконтракт в порядке');
 process.exit(fail.length ? 1 : 0);

@@ -43,7 +43,9 @@ const document = {
 };
 
 const routes = {
-  '/health': FX('health', 'FX_HEALTH'), '/v1/models': FX('models', 'FX_MODELS'), '/queue': FX('queue', 'FX_QUEUE'),
+  '/health': Object.assign({}, FX('health', 'FX_HEALTH'), { users_ready: true }),
+  '/me': { user: { id: 'u1', name: 'Тест', role: 'admin', key: 'sk-0000' }, settings: null },
+  '/v1/models': FX('models', 'FX_MODELS'), '/queue': FX('queue', 'FX_QUEUE'),
   '/jobs?limit=60': FX('jobs', 'FX_JOBS'),
 };
 let calls = [];

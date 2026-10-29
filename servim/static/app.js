@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '1.9.1';   // синхронно с ?v= в index.html
+const UI_VER = '2.0.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -98,6 +98,7 @@ async function api(path, opt) {
       const j = await r.json();
       msg = j?.detail?.error?.message || (typeof j?.detail === 'string' ? j.detail : msg);
     } catch (e) { /* не JSON — оставляем код */ }
+    if (r.status === 401 && !(opt && opt.quiet401)) authNeeded();   // сесси кончилась — просим вход
     throw new Error(msg);
   }
   return r.status === 204 ? null : r.json();
@@ -108,6 +109,156 @@ function toast(msg) {
   if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
   el.textContent = msg; el.classList.add('on');
   clearTimeout(toast_t); toast_t = setTimeout(() => el.classList.remove('on'), 3200);
+}
+
+/* ------------------------------------------- пользователи: вход, профиль, админ */
+S.user = null;
+S.adUsers = [];
+
+function authNeeded() {
+  showLogin(S.health.users_ready ? 'login' : 'setup');
+}
+
+function showLogin(mode) {
+  const m = $('#loginmask'); if (!m) return;
+  const setup = mode !== 'login';
+  m.hidden = false;
+  $('#lt').textContent = setup ? 'Создай первого администратора' : 'Вход';
+  $('#lx').textContent = setup
+    ? 'Первый запуск: создаём админа. У каждого пользователя свои настройки и своя история.'
+    : 'Свой профиль: у каждого пользователя свои настройки и своя история.';
+  $('#lpass2f').hidden = !setup;
+  $('#lok').textContent = setup ? 'создать и войти' : 'войти';
+  $('#lerr').textContent = '';
+  const n = $('#lname'); if (n) n.focus();
+}
+
+async function doLogin() {
+  const setup = !S.health.users_ready;
+  const name = $('#lname').value.trim(), pw = $('#lpass').value;
+  const err = $('#lerr');
+  err.textContent = '';
+  if (!name) { err.textContent = 'введи имя'; return; }
+  if (setup && pw !== $('#lpass2').value) { err.textContent = 'пароли не совпадают'; return; }
+  try {
+    const r = await fetch(EP + (setup ? 'setup' : 'login'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, password: pw }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((d && d.detail && d.detail.error && d.detail.error.message) || (r.status + ' ' + r.statusText));
+    location.reload();                       // свежая загрузка уже под сессией
+  } catch (e) { err.textContent = e.message; }
+}
+
+function fillProfile(u) {
+  S.user = u;
+  const who = $('#who'), un = $('#uname');
+  if (who) { who.hidden = false; un.textContent = u.name; }
+  const p = $('#prof');
+  if (p) {
+    p.hidden = false;
+    $('#prof_who').innerHTML = `Вы вошли как <b>${esc(u.name)}</b>${u.role === 'admin' ? ' · админ' : ''}`;
+    $('#p_key').value = u.key || '';
+  }
+  const ub = $('#users');
+  if (ub) ub.hidden = u.role !== 'admin';
+}
+
+function applyServerSettings(st) {
+  if (!st || typeof st !== 'object') return;
+  try {
+    if (st.cfg && typeof st.cfg === 'object') {
+      localStorage.setItem(CFG_KEY, JSON.stringify({ ...cfg(), ...st.cfg }));
+      const u = (cfg().url || '').trim().replace(/\/+$/, '');
+      EP = u ? u + '/' : EP0;
+    }
+    if (st.ui && typeof st.ui === 'object') {
+      const cur = JSON.parse(localStorage.getItem(LS) || '{}');
+      localStorage.setItem(LS, JSON.stringify({ ...cur, ...st.ui }));
+    }
+  } catch (e) { /* настройки не критичны, не роняем загрузку */ }
+}
+
+function pushUserSettings() {
+  if (!S.user) return;
+  const ui = (() => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } })();
+  api(EP + 'me/settings', { method: 'PUT', quiet401: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ cfg: cfg(), ui }) }).catch(() => {});
+}
+
+async function adminOpen() {
+  const m = $('#adminmask'); if (!m) return;
+  m.hidden = false;
+  await adminReload().catch(e => toast('не вышло: ' + e.message));
+  try {
+    const s = await api(EP + 'admin/settings', { quiet401: true });
+    $('#s_url').value = (s && s.url) || ''; $('#s_port').value = (s && s.port) || '';
+  } catch (e) { /* не админ — поля останутся пустыми */ }
+}
+
+async function adminReload() {
+  const d = await api(EP + 'admin/users');
+  S.adUsers = d.users || [];
+  const tb = $('#adtb');
+  tb.innerHTML = S.adUsers.map(u => `<tr data-uid="${esc(u.id)}">
+    <td>${esc(u.name)}${S.user && u.id === S.user.id ? ' <span class="you">это ты</span>' : ''}</td>
+    <td><span class="role ${u.role}">${u.role === 'admin' ? 'админ' : 'юзер'}</span></td>
+    <td>${u.created ? new Date(u.created * 1000).toLocaleDateString() : ''}</td>
+    <td class="acts"><button class="tbtn" data-act="key" data-tip="показать API-ключ">ключ</button>
+      <button class="tbtn" data-act="pw" data-tip="задать новый пароль">пароль</button>
+      <button class="tbtn danger" data-act="del" data-tip="удалить пользователя и его настройки">✕</button></td></tr>`).join('')
+    || '<tr><td colspan="4" class="empty">пусто</td></tr>';
+}
+
+async function adminAct(e) {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const tr = b.closest('tr'), uid = tr && tr.dataset.uid;
+  const act = b.dataset.act;
+  try {
+    if (act === 'key') {
+      const u = S.adUsers.find(x => x.id === uid);
+      const k = (u && u.key) || '';
+      if (navigator.clipboard) navigator.clipboard.writeText(k).then(() => toast('API-ключ скопирован')).catch(() => toast(k));
+      else toast(k);
+    } else if (act === 'pw') {
+      b.closest('td').innerHTML = '<input class="pwedit" type="password" placeholder="новый пароль (от 4)">'
+        + '<button class="tbtn pri" data-act="pwsave">ок</button><button class="tbtn" data-act="pwcancel">✕</button>';
+      const inp = tr.querySelector('.pwedit'); if (inp) inp.focus();
+    } else if (act === 'pwsave') {
+      const v = (tr.querySelector('.pwedit') || {}).value || '';
+      await api(EP + 'admin/users/' + encodeURIComponent(uid), { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: v }) });
+      toast('пароль задан'); await adminReload();
+    } else if (act === 'pwcancel') {
+      await adminReload();
+    } else if (act === 'del') {
+      if (!await ask(`Пользователь «${uid}» будет удалён вместе со своими настройками и ключом.`, 'Удалить')) return;
+      await api(EP + 'admin/users/' + encodeURIComponent(uid), { method: 'DELETE' });
+      toast('пользователь удалён'); await adminReload();
+    }
+  } catch (er) { toast('не вышло: ' + er.message); }
+}
+
+async function adminAdd() {
+  const body = { name: $('#adname').value.trim(), password: $('#adpass').value, role: $('#adrole').value };
+  try {
+    await api(EP + 'admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body) });
+    $('#adname').value = ''; $('#adpass').value = '';
+    toast('пользователь добавлен'); await adminReload();
+  } catch (e) { toast('не вышло: ' + e.message); }
+}
+
+async function adminSaveSys() {
+  const body = { url: $('#s_url').value.trim() };
+  const port = $('#s_port').value.trim();
+  if (port) body.port = parseInt(port, 10);
+  try {
+    await api(EP + 'admin/settings', { method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body) });
+    toast('сохранено; порт и хост применятся при перезапуске сервиса');
+  } catch (e) { toast('не вышло: ' + e.message); }
 }
 const plural = (n, a, b, c) => { const m = n % 100, k = n % 10; return (m > 4 && m < 21) ? c : (k === 1 ? a : (k > 1 && k < 5 ? b : c)); };
 function fmtDur(d) {
@@ -379,6 +530,7 @@ function saveStore() {
   $$('[data-flag]').forEach(b => d[b.dataset.flag] = b.getAttribute('aria-pressed') === 'true');
   d.model = $('#model').value;
   localStorage.setItem(LS, JSON.stringify(d));
+  pushUserSettings();                      // настройки пользователя — тоже на сервер
 }
 function restore() {
   const d = store();
@@ -472,7 +624,11 @@ function wire() {
 
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Delete' && S.sel && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) del(S.sel);
-    if (e.key === 'Escape') { if (!$('#askmask').hidden) return; S.openId = null; hideRes(); }
+    if (e.key === 'Escape') {
+      const adm = $('#adminmask');
+      if (adm && !adm.hidden) { adm.hidden = true; return; }
+      if (!$('#askmask').hidden) return; S.openId = null; hideRes();
+    }
   });
 
   window.openCfg = function openCfg(why) {
@@ -485,12 +641,12 @@ function wire() {
   };
   (function settings() {
     const sheet = $('#cfg'); if (!sheet) return;
-    const fields = { url: $('#c_url'), key: $('#c_key'), user: $('#c_user'), tok: $('#c_tok') };
+    const fields = { url: $('#c_url'), key: $('#c_key') };
     const show = () => { const c = cfg(); Object.keys(fields).forEach(k => { if (fields[k]) fields[k].value = c[k] || ''; }); };
     const save = () => { const c = {}; Object.keys(fields).forEach(k => { if (fields[k] && fields[k].value) c[k] = fields[k].value.trim(); });
       localStorage.setItem(CFG_KEY, JSON.stringify(c));
       const u = (c.url || '').trim().replace(/\/+$/, ''); EP = u ? u + '/' : EP0;
-      saveStore();   // модель/язык/спикеры помнятся между визитами
+      saveStore();   // модель/язык/спикеры помнятся между визитами и на сервере
       $$('#cfg select').forEach(sel => sel.onchange = save); };
     Object.values(fields).forEach(el => el && el.addEventListener('change', save));
     $('#gear').onclick = () => { show(); if (sheet.hidden) openCfg(); else sheet.hidden = true; };
@@ -500,6 +656,35 @@ function wire() {
     show();
     const u = (cfg().url || '').trim().replace(/\/+$/, '');
     if (u) EP = u + '/';
+  })();
+
+  (function authui() {
+    const lok = $('#lok');
+    if (lok) {
+      lok.onclick = () => doLogin();
+      $('#lname').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#lpass').focus(); });
+      ['lpass', 'lpass2'].forEach(id => $('#' + id).addEventListener('keydown',
+        (e) => { if (e.key === 'Enter') doLogin(); }));
+    }
+    const who = $('#who');
+    if (who) who.onclick = () => openCfg();
+    const ub = $('#users');
+    if (ub) ub.onclick = () => adminOpen().catch(e => toast('не вышло: ' + e.message));
+    const ad = $('#adtb');
+    if (ad) ad.addEventListener('click', (e) => adminAct(e).catch(() => {}));
+    const aa = $('#adadd');
+    if (aa) { aa.onclick = () => adminAdd();
+      ['adname', 'adpass'].forEach(id => $('#' + id).addEventListener('keydown',
+        (e) => { if (e.key === 'Enter') adminAdd(); })); }
+    const sc = $('#adclose');
+    if (sc) sc.onclick = () => { $('#adminmask').hidden = true; };
+    const ss = $('#s_save');
+    if (ss) ss.onclick = () => adminSaveSys();
+    const po = $('#p_out');
+    if (po) po.onclick = async () => {
+      try { await fetch(EP + 'logout', { method: 'POST' }); } catch (e) { /* выходим как есть */ }
+      location.reload();
+    };
   })();
 
   const tw = $('#tw');
@@ -521,7 +706,24 @@ function wire() {
 (async function boot() {
   restore(); wire();
   try {
-    await Promise.all([loadHealth(), loadModels(), loadQueue()]);
+    await loadHealth();
+  } catch (e) {
+    $('#tb').innerHTML = `<tr><td colspan="4" class="empty">сервис недоступен: ${esc(e.message)}`
+      + `<br><button class="tbtn" id="cfgopen">открыть настройки</button> — проверь адрес сервера</td></tr>`;
+    const b = $('#cfgopen'); if (b) b.onclick = () => openCfg('сервер не отвечает — проверь адрес');
+    openCfg('сервер не отвечает: ' + e.message);   // пустой экран без объяснений — худший вариант
+    return;
+  }
+  // авторизация: setup при первом запуске, вход — после него
+  if (!S.health.users_ready) { showLogin('setup'); return; }
+  let me = null;
+  try { me = await api(EP + 'me', { quiet401: true }); } catch (e) { me = null; }
+  if (!me || !me.user) { showLogin('login'); return; }
+  applyServerSettings(me.settings);
+  fillProfile(me.user);
+  restore();                    // флаги/модель могли приехать с сервера
+  try {
+    await Promise.all([loadModels(), loadQueue()]);
     await loadJobs();
     if (matchMedia('(hover:none)').matches) $('#mh').style.display = '';
     if (S.jobs.some(isLive) || S.health.busy) poll(); else render();

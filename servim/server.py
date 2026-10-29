@@ -22,9 +22,11 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
+import secrets
 import shutil
 import tempfile
 import threading
@@ -62,7 +64,151 @@ SUPPORTED_MODELS = [
 CONTAINERS = {".wav", ".mp3", ".m4a", ".m4b", ".ogg", ".opus", ".flac", ".webm", ".mp4", ".mov",
               ".mkv", ".aac", ".wma", ".mpg", ".mpga", ".mpeg", ".mpeg", ".m4v", ".mka", ".aiff", ".ape"}
 
-app = FastAPI(title="WhisperX ASR", version="1.1.2",
+# ------------------------------------------------------------------ пользователи и сессии
+# Хранение: $DATA/auth/{users.json,sessions.json,sys.json,settings/<id>.json}
+# Пароль — PBKDF2-HMAC-SHA256 (100k итераций, соль 16 байт). Сессия — случайный токен
+# (secrets.token_hex(32)) в куке HttpOnly SameSite=Strict, файл сессий переживает рестарт.
+# API-ключ пользователя: Authorization: Bearer sv-... работает во всём API (UI + OpenAI-форма).
+COOKIE_NAME = "servim_sid"
+SESSION_TTL = 30 * 24 * 3600
+_auth: dict[str, Any] = {"users": None, "sessions": None, "dir": None}
+
+
+def _auth_dir() -> Path:
+    return DATA_DIR / "auth"
+
+
+def _load_auth() -> None:
+    """Читаем файлы пользователей/сессий один раз; после смены DATA_DIR (main --data)
+    перечитываем. Протухшие сессии выбрасываем."""
+    d = _auth_dir()
+    if _auth["dir"] == str(d) and _auth["users"] is not None:
+        return
+    try:
+        users = json.loads((d / "users.json").read_text())
+    except (OSError, ValueError):
+        users = {}
+    try:
+        sessions = json.loads((d / "sessions.json").read_text())
+    except (OSError, ValueError):
+        sessions = {}
+    now = time.time()
+    sessions = {t: s for t, s in sessions.items() if isinstance(s, dict) and s.get("exp", 0) > now}
+    _auth.update(users=users, sessions=sessions, dir=str(d))
+
+
+def _save_users() -> None:
+    d = _auth_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "users.json").write_text(json.dumps(_auth["users"], ensure_ascii=False))
+
+
+def _save_sessions() -> None:
+    d = _auth_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "sessions.json").write_text(json.dumps(_auth["sessions"], ensure_ascii=False))
+
+
+def _hash_pw(pw: str, salt_hex: str) -> str:
+    return hashlib.pbkdf2_hmac("sha256", pw.encode(), bytes.fromhex(salt_hex), 100_000).hex()
+
+
+def _valid_name(name: str) -> str:
+    if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,32}", name or ""):
+        raise HTTPException(400, detail={"error": {"message": "имя: 1-32 символа, латиница/цифры/._-",
+                                                   "type": "invalid_request_error"}})
+    return name
+
+
+def _valid_pw(pw: str) -> str:
+    if not isinstance(pw, str) or len(pw) < 4:
+        raise HTTPException(400, detail={"error": {"message": "пароль: минимум 4 символа",
+                                                   "type": "invalid_request_error"}})
+    return pw
+
+
+def _new_user(name: str, pw: str, role: str = "user") -> dict:
+    salt = secrets.token_hex(16)
+    u = {"id": name, "name": name, "role": role, "salt": salt, "pass": _hash_pw(pw, salt),
+         "key": "sv-" + secrets.token_hex(16), "created": int(time.time())}
+    _load_auth()
+    _auth["users"][name] = u
+    _save_users()
+    return u
+
+
+def _pub_user(u: dict) -> dict:
+    return {k: u.get(k) for k in ("id", "name", "role", "created", "key")}
+
+
+def _check_login(name: str, pw: str) -> dict | None:
+    _load_auth()
+    u = _auth["users"].get((name or "").strip())
+    if not u:
+        return None
+    try:
+        if not secrets.compare_digest(u["pass"], _hash_pw(pw, u["salt"])):
+            return None
+    except Exception:          # noqa: BLE001 — кривая запись в файле не должна ронять сервис
+        return None
+    return u
+
+
+def _new_session(uid: str) -> str:
+    _load_auth()
+    tok = secrets.token_hex(32)
+    _auth["sessions"][tok] = {"user": uid, "exp": int(time.time() + SESSION_TTL)}
+    _save_sessions()
+    return tok
+
+
+def _drop_session(tok: str) -> None:
+    _load_auth()
+    if tok and _auth["sessions"].pop(tok, None):
+        _save_sessions()
+
+
+def _current_user(request: Request) -> dict | None:
+    _load_auth()
+    h = request.headers.get("authorization") or ""
+    if h.lower().startswith("bearer "):
+        k = h[7:].strip()
+        if k:
+            for u in _auth["users"].values():
+                if u.get("key") and secrets.compare_digest(u["key"], k):
+                    return u
+    s = _auth["sessions"].get(request.cookies.get(COOKIE_NAME) or "")
+    return _auth["users"].get(s["user"]) if s else None
+
+
+def _auth_guard(request: Request, admin: bool = False) -> dict:
+    u = _current_user(request)
+    if not u:
+        first = not _auth["users"]
+        raise HTTPException(401, detail={"error": {
+            "message": ("админ ещё не создан: POST /setup {name,password}" if first
+                        else "нужен вход: POST /login {name,password}"),
+            "type": "invalid_request_error",
+            "code": "setup_required" if first else "auth_required"}})
+    if admin and u["role"] != "admin":
+        raise HTTPException(403, detail={"error": {"message": "доступно только администратору",
+                                                   "type": "invalid_request_error", "code": "admin_required"}})
+    return u
+
+
+def _can_access(j: dict, u: dict) -> bool:
+    """Задача видна владельцу; админ видит всё (в т.ч. старые задачи без owner)."""
+    return u["role"] == "admin" or (j.get("owner") or "legacy") == u["id"]
+
+
+def _user_settings(uid: str) -> dict:
+    try:
+        return json.loads((_auth_dir() / "settings" / f"{uid}.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+app = FastAPI(title="WhisperX ASR", version="1.2.0",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
 
 # FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
@@ -614,13 +760,15 @@ def _probe_duration(path: str) -> float | None:
         return None
 
 
-def _new_job(name: str, path: str, d: str, opts: dict, start: bool = True) -> str:
+def _new_job(name: str, path: str, d: str, opts: dict, start: bool = True,
+             owner: str | None = None) -> str:
     jid = str(uuid.uuid4())
     ext = (Path(name).suffix or "").lstrip(".").lower()[:5]
     with _jobs_lock:
         _jobs[jid] = {"id": jid, "name": name, "type": ext, "duration": _probe_duration(path),
                       "status": "queued" if start else "plan", "audio": path, "dir": d,
-                      "options": opts, "created": time.time(), "warnings": []}
+                      "options": opts, "created": time.time(), "warnings": [],
+                      "owner": owner or "legacy"}
         _persist(_jobs[jid])
     if start:
         _tasks.append(jid)
@@ -683,6 +831,7 @@ async def transcriptions(request: Request, file: UploadFile = File(...), model: 
                         beam_size: int = Form(5), min_speakers: int = Form(1), max_speakers: int = Form(8),
                         num_speakers: int = Form(0), word_timestamps: str | None = Form(None),
                         wait: int = Form(7200)):
+    _auth_guard(request)
     form = await request.form()
     g = lambda k, d=None: form.get(k, d)  # noqa: E731
     if known_speaker_references:
@@ -700,7 +849,8 @@ async def transcriptions(request: Request, file: UploadFile = File(...), model: 
         "word_timestamps": _as_bool(word_timestamps, "word" in (timestamp_granularities or []) or True),
         "diarize": want_diar, "min_speakers": min_speakers, "max_speakers": max_speakers,
         "num_speakers": num_speakers or None, "known_speaker_names": known_speaker_names or [],
-        "prompt": prompt, "temperature": temperature})
+        "prompt": prompt, "temperature": temperature},
+        owner=(_current_user(request) or {}).get("id"))
     job = _wait(jid, wait)
     res = job["result"]
 
@@ -728,12 +878,14 @@ async def transcriptions(request: Request, file: UploadFile = File(...), model: 
 
 
 @app.post("/v1/audio/translations")
-async def translations(file: UploadFile = File(...), model: str = Form(...),
+async def translations(request: Request, file: UploadFile = File(...), model: str = Form(...),
                       response_format: str = Form("json"), prompt: str | None = Form(None)):
     """Перевода нет — отдаём транскрипцию исходника (как это делает whisper-1 без перевода)."""
+    _auth_guard(request)
     path, d = await _stash(file)
     jid = _new_job(file.filename or "audio", path, d, {"model": model, "diarize": False,
-                                                      "word_timestamps": False, "prompt": prompt})
+                                                      "word_timestamps": False, "prompt": prompt},
+                   owner=(_current_user(request) or {}).get("id"))
     res = _wait(jid, 7200)["result"]
     if response_format in ("text", "plain_text"):
         return PlainTextResponse(res["text_full"])
@@ -756,6 +908,7 @@ def _ui_stamp() -> int:
 
 @app.get("/health")
 def health() -> dict:
+    _load_auth()
     vram = {}
     try:
         import torch
@@ -772,49 +925,55 @@ def health() -> dict:
             "diar_ready": bool(HF_TOKEN), "align_languages": sorted(_state["align_cache"]),
             "error": _state["error"], "queue": len(_tasks), "busy": _state["busy"],
             "paused": _paused["v"],
-            "jobs": len(_jobs), "formats": ["json", "verbose_json", "diarized_json", "text", "srt",
-                                           "vtt", "stxt", "txt", "tsv", "md"], **({"vram": vram} if vram else {})}
+            "jobs": len(_jobs), "users_ready": bool(_auth["users"]),
+            "formats": ["json", "verbose_json", "diarized_json", "text", "srt",
+                        "vtt", "stxt", "txt", "tsv", "md"], **({"vram": vram} if vram else {})}
 
 
 @app.post("/jobs")
-async def create_job(file: UploadFile = File(...), model: str = Form(DEFAULT_MODEL),
+async def create_job(request: Request, file: UploadFile = File(...), model: str = Form(DEFAULT_MODEL),
                     language: str | None = Form(None), diarize: str | None = Form(None),
                     vad_filter: str | None = Form(None), word_timestamps: str | None = Form(None),
                     beam_size: int = Form(5), min_speakers: int = Form(1), max_speakers: int = Form(8),
                     num_speakers: int = Form(0), start: str | None = Form(None)):
+    u = _auth_guard(request)
     path, d = await _stash(file)
     jid = _new_job(file.filename or "audio", path, d, {
         "model": model, "language": language or None, "diarize": _as_bool(diarize, True),
         "vad_filter": _as_bool(vad_filter, True), "word_timestamps": _as_bool(word_timestamps, True),
         "beam_size": beam_size, "min_speakers": min_speakers, "max_speakers": max_speakers,
-        "num_speakers": num_speakers or None}, start=_as_bool(start, True))
+        "num_speakers": num_speakers or None}, start=_as_bool(start, True), owner=u["id"])
     return {"job_id": jid, "status": _jobs[jid]["status"], "status_url": f"/jobs/{jid}",
             "result_url": f"/jobs/{jid}/result"}
 
 
 @app.get("/queue", response_model=None)
-def queue_state(selected: str | None = None) -> dict:
+def queue_state(request: Request, selected: str | None = None) -> dict:
     """Состояние очереди; `selected` (id через запятую) — отмеченные задачи, они идут первыми."""
+    u = _auth_guard(request)
     with _jobs_lock:
         planned = [j["id"] for j in sorted(_jobs.values(), key=lambda j: j.get("created") or 0)
-                   if j.get("status") == "plan"]
+                   if j.get("status") == "plan" and _can_access(j, u)]
     head = [i for i in (selected.split(",") if selected else []) if i in planned]
     if head:
         planned = head + [i for i in planned if i not in head]
+    mine = [i for i in _tasks if _jobs.get(i) and _can_access(_jobs[i], u)]
     return {"paused": _paused["v"], "busy": _state["busy"], "planned": planned,
-            "queued": list(_tasks)}
+            "queued": mine}
 
 
 @app.post("/queue/start", response_model=None)
-def queue_start(selected: str | None = None) -> dict:
+def queue_start(request: Request, selected: str | None = None) -> dict:
     """Снять с паузы и поставить в очередь всё запланированное.
-    `selected` (id через запятую) ставит отмеченные задачи первыми."""
+    `selected` (id через запятую) ставит отмеченные задачи первыми. Пользователь
+    запускает только свои задачи; админ — все."""
+    u = _auth_guard(request)
     _paused["v"] = False
     order = [x.strip() for x in (selected or "").split(",") if x.strip()]
     with _jobs_lock:
         # Отмеченные в интерфейсе идут первыми, остальное — в порядке добавления.
         ids = order + [j["id"] for j in sorted(_jobs.values(), key=lambda j: j.get("created") or 0)
-                       if j.get("status") == "plan" and j["id"] not in order]
+                       if j.get("status") == "plan" and j["id"] not in order and _can_access(j, u)]
         ids = [i for i in ids if _jobs.get(i) and _jobs[i]["status"] in ("plan", "queued")]
         for jid in ids:
             _jobs[jid]["status"] = "queued"
@@ -822,18 +981,19 @@ def queue_start(selected: str | None = None) -> dict:
     # Пересобираем очередь целиком: только что отмеченные — в начало, остальные — за ними.
     global _tasks
     with _jobs_lock:
-        _tasks = ids + [i for i in _tasks if i not in ids]
+        _tasks = ids + [i for i in _tasks if i not in ids and _jobs.get(i) and _can_access(_jobs[i], u)]
     _task_evt.set()
     if not ids:  # диагностика для интерфейса: «Старт» на пустой очереди выглядит поломкой
         left = [{"id": j["id"], "status": j.get("status"), "error": (j.get("error") or "")[:80]}
-                for j in _jobs.values() if j.get("status") in ("error", "queued", "running")]
+                for j in _jobs.values() if j.get("status") in ("error", "queued", "running") and _can_access(j, u)]
         return {"paused": False, "started": 0, "nothing_to_start": True, "jobs": left}
     return {"paused": False, "started": len(ids)}
 
 
 @app.post("/queue/pause")
-def queue_pause(pause_current: bool = False) -> dict:
-    """Пауза: текущая задача доходит до конца (или прерывается сразу, если pause_current=true)."""
+def queue_pause(request: Request, pause_current: bool = False) -> dict:
+    """Пауза глобальная — ставит на паузу очередь для всех; поэтому только админ."""
+    _auth_guard(request, admin=True)
     _paused["v"] = True
     stopped = None
     if pause_current and _state["busy"]:
@@ -859,18 +1019,30 @@ def _stop_job(job_id: str) -> str:
 
 
 @app.post("/jobs/{job_id}/stop")
-def stop_job(job_id: str) -> dict:
-    if job_id not in _jobs:
+def stop_job(request: Request, job_id: str) -> dict:
+    u = _auth_guard(request)
+    j = _jobs.get(job_id)
+    if not j:
         raise HTTPException(404, detail={"error": {"message": "задачи нет",
+                                                   "type": "invalid_request_error"}})
+    if not _can_access(j, u):
+        raise HTTPException(403, detail={"error": {"message": "чужая задача",
                                                    "type": "invalid_request_error"}})
     return {"job_id": job_id, "action": _stop_job(job_id)}
 
 
 @app.get("/jobs")
-def list_jobs(limit: int = 50) -> dict:
+def list_jobs(request: Request, limit: int = 50, scope: str | None = None) -> dict:
+    u = _auth_guard(request)
+    all_scope = scope == "all"
+    if all_scope and u["role"] != "admin":
+        raise HTTPException(403, detail={"error": {"message": "scope=all доступен только админу",
+                                                   "type": "invalid_request_error"}})
     with _jobs_lock:
-        items = sorted(_jobs.values(), key=lambda j: j.get("created") or 0, reverse=True)[:limit]
-    return {"count": len(_jobs), "jobs": [{k: v for k, v in j.items()
+        vis = sorted((j for j in _jobs.values() if all_scope or _can_access(j, u)),
+                     key=lambda j: j.get("created") or 0, reverse=True)
+    items = vis[:limit]
+    return {"count": len(vis), "jobs": [{k: v for k, v in j.items()
                                           if k not in ("audio", "dir", "result", "trace")} | (
         {"summary": _summary(j)} if j.get("status") == "done" else {}) for j in items]}
 
@@ -883,10 +1055,13 @@ def _summary(job: dict) -> dict:
 
 
 @app.get("/jobs/{job_id}")
-def job_status(job_id: str) -> dict:
+def job_status(request: Request, job_id: str) -> dict:
+    u = _auth_guard(request)
     j = _jobs.get(job_id)
     if not j:
         raise HTTPException(404, detail={"error": {"message": "задачи нет", "type": "invalid_request_error"}})
+    if not _can_access(j, u):
+        raise HTTPException(403, detail={"error": {"message": "чужая задача", "type": "invalid_request_error"}})
     out = {k: v for k, v in j.items() if k not in ("audio", "dir")}
     if j["status"] == "done":
         out["summary"] = _summary(j)
@@ -903,15 +1078,16 @@ def job_status(job_id: str) -> dict:
 
 
 @app.get("/download")
-def download_all(fmt: str = "srt") -> Response:
+def download_all(request: Request, fmt: str = "srt") -> Response:
     """Все готовые результаты одним zip-архивом (имена = имена исходных файлов)."""
+    u = _auth_guard(request)
     import io
     import zipfile
     buf = io.BytesIO()
     n = 0
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
         for j in _jobs.values():
-            if j.get("status") != "done":
+            if j.get("status") != "done" or not _can_access(j, u):
                 continue
             try:
                 body, _mime, ext = render(j["result"], fmt)
@@ -928,17 +1104,20 @@ def download_all(fmt: str = "srt") -> Response:
 
 
 @app.api_route("/jobs/{job_id}/download", methods=["GET", "HEAD"])
-def job_download(job_id: str, fmt: str = "srt", format: str = ""):
+def job_download(request: Request, job_id: str, fmt: str = "srt", format: str = ""):
     """Старое/прямое имя ссылки: ?fmt= вместо ?format=. Нужено, чтобы вкладки,
     открытые до переименования параметра, продолжали скачивать."""
-    return job_result(job_id, format or fmt)
+    return job_result(request, job_id, format or fmt)
 
 
 @app.api_route("/jobs/{job_id}/result", methods=["GET", "HEAD"])
-def job_result(job_id: str, format: str = "json"):
+def job_result(request: Request, job_id: str, format: str = "json"):
+    u = _auth_guard(request)
     j = _jobs.get(job_id)
     if not j:
         raise HTTPException(404, detail={"error": {"message": "задачи нет", "type": "invalid_request_error"}})
+    if not _can_access(j, u):
+        raise HTTPException(403, detail={"error": {"message": "чужая задача", "type": "invalid_request_error"}})
     if j["status"] != "done":
         raise HTTPException(409, detail={"error": {"message": f"статус {j['status']}"
                                                            + (f": {j.get('error')}" if j.get("error") else ""),
@@ -956,11 +1135,14 @@ def job_result(job_id: str, format: str = "json"):
 
 
 @app.put("/jobs/{job_id}/speakers")
-async def rename_speakers(job_id: str, body: dict) -> dict:
+async def rename_speakers(request: Request, job_id: str, body: dict) -> dict:
     """{"SPEAKER_00": "Пупкин Иван", "B": "Друг"} — переименование спикеров (по исходной метке)."""
+    u = _auth_guard(request)
     j = _jobs.get(job_id)
     if not j or j["status"] != "done":
         raise HTTPException(404, detail={"error": {"message": "готовой задачи нет", "type": "invalid_request_error"}})
+    if not _can_access(j, u):
+        raise HTTPException(403, detail={"error": {"message": "чужая задача", "type": "invalid_request_error"}})
     names = j["result"].setdefault("speaker_names", {})
     order = j["result"].get("speaker_order") or []
     if not order:
@@ -985,23 +1167,33 @@ async def rename_speakers(job_id: str, body: dict) -> dict:
 
 
 @app.delete("/jobs/{job_id}", status_code=204)
-def delete_job(job_id: str):
+def delete_job(request: Request, job_id: str):
+    u = _auth_guard(request)
     with _jobs_lock:
         j = _jobs.pop(job_id, None)
+    if j and not _can_access(j, u):
+        with _jobs_lock:
+            _jobs[job_id] = j           # не твоя — вернуть на место
+        raise HTTPException(403, detail={"error": {"message": "чужая задача", "type": "invalid_request_error"}})
     if j:
         shutil.rmtree(j.get("dir", "/nonexistent"), ignore_errors=True)
         (DATA_DIR / f"{job_id}.json").unlink(missing_ok=True)
 
 
 @app.delete("/jobs")
-def delete_jobs(ids: str) -> Response:
+def delete_jobs(request: Request, ids: str) -> Response:
     """Пакетное удаление: `DELETE /jobs?ids=<id1>,<id2>`. Отвечает списком фактически
-    удалённых id, чтобы интерфейс мог убедиться, что запрос дошёл и обработан."""
+    удалённых id, чтобы интерфейс мог убедиться, что запрос дошёл и обработан.
+    Чужие id (не свои) молча пропускаются — пользователь не должен уметь их удалить."""
+    u = _auth_guard(request)
     deleted = []
     for jid in [x.strip() for x in ids.split(",") if x.strip()]:
         with _jobs_lock:
             job = _jobs.pop(jid, None)
-        if job is None:
+        if job is None or not _can_access(job, u):
+            if job is not None:         # чужую — вернуть, удаление недоступно
+                with _jobs_lock:
+                    _jobs[jid] = job
             continue
         deleted.append(jid)
         if jid in _tasks:          # снять с очереди, если ещё не началась
@@ -1009,6 +1201,216 @@ def delete_jobs(ids: str) -> Response:
         shutil.rmtree(job.get("dir", "/nonexistent"), ignore_errors=True)
         (DATA_DIR / f"{jid}.json").unlink(missing_ok=True)
     return JSONResponse({"deleted": deleted, "count": len(deleted)}, status_code=200)
+
+
+# ------------------------------------------------------------- вход / профиль / админ
+@app.post("/setup")
+def setup(response: Response, body: dict) -> dict:
+    """Создание первого администратора. Работает один раз: пока пользователей нет."""
+    _load_auth()
+    if _auth["users"]:
+        raise HTTPException(409, detail={"error": {"message": "админ уже создан — входи через /login",
+                                                   "type": "invalid_request_error", "code": "setup_done"}})
+    name = _valid_name((body.get("name") or "").strip())
+    pw = _valid_pw(body.get("password"))
+    u = _new_user(name, pw, "admin")
+    tok = _new_session(u["id"])
+    response.set_cookie(COOKIE_NAME, tok, max_age=SESSION_TTL, httponly=True, samesite="strict")
+    return {"user": _pub_user(u)}
+
+
+@app.post("/login")
+def login(response: Response, body: dict) -> dict:
+    _load_auth()
+    if not _auth["users"]:
+        raise HTTPException(409, detail={"error": {"message": "админ ещё не создан: POST /setup",
+                                                   "type": "invalid_request_error", "code": "setup_required"}})
+    u = _check_login(body.get("name") or "", body.get("password") or "")
+    if not u:
+        raise HTTPException(401, detail={"error": {"message": "неверное имя или пароль",
+                                                   "type": "invalid_request_error", "code": "bad_credentials"}})
+    tok = _new_session(u["id"])
+    response.set_cookie(COOKIE_NAME, tok, max_age=SESSION_TTL, httponly=True, samesite="strict")
+    return {"user": _pub_user(u)}
+
+
+@app.post("/logout")
+def logout(request: Request, response: Response) -> dict:
+    _drop_session(request.cookies.get(COOKIE_NAME) or "")
+    response.delete_cookie(COOKIE_NAME)
+    return {"ok": True}
+
+
+@app.get("/me")
+def me(request: Request) -> dict:
+    u = _auth_guard(request)
+    return {"user": _pub_user(u), "settings": _user_settings(u["id"])}
+
+
+@app.put("/me/settings")
+def put_my_settings(request: Request, body: dict) -> dict:
+    """Настройки пользователя (любой JSON ≤ 64 КБ): модель/язык/адрес/что-ещё — на сервере,
+    поэтому они следуют за пользователем с любого устройства."""
+    u = _auth_guard(request)
+    try:
+        raw = json.dumps(body, ensure_ascii=False)
+    except TypeError:
+        raise HTTPException(400, detail={"error": {"message": "некорректный JSON", "type": "invalid_request_error"}})
+    if len(raw) > 64_000:
+        raise HTTPException(413, detail={"error": {"message": "слишком большие настройки", "type": "invalid_request_error"}})
+    d = _auth_dir() / "settings"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / f"{u['id']}.json").write_text(raw)
+    return {"ok": True}
+
+
+@app.post("/me/password")
+def change_my_password(request: Request, body: dict) -> dict:
+    u = _auth_guard(request)
+    old = body.get("old") or ""
+    try:
+        ok_old = secrets.compare_digest(u["pass"], _hash_pw(old, u["salt"]))
+    except Exception:          # noqa: BLE001 — битая запись пользователя не должна ронять
+        ok_old = False
+    if not ok_old:
+        raise HTTPException(400, detail={"error": {"message": "старый пароль не совпал",
+                                                   "type": "invalid_request_error"}})
+    _set_password(u, _valid_pw(body.get("new")))
+    return {"ok": True}
+
+
+def _set_password(u: dict, pw: str) -> None:
+    salt = secrets.token_hex(16)
+    u["salt"], u["pass"] = salt, _hash_pw(pw, salt)
+    _save_users()
+
+
+@app.post("/me/key")
+def regen_my_key(request: Request) -> dict:
+    """Новый API-ключ (старый перестаёт работать)."""
+    u = _auth_guard(request)
+    u["key"] = "sv-" + secrets.token_hex(16)
+    _save_users()
+    return {"key": u["key"]}
+
+
+# ------------------------------------------------------------- админ: пользователи и система
+@app.get("/admin/users")
+def admin_list(request: Request) -> dict:
+    _auth_guard(request, admin=True)
+    _load_auth()
+    return {"users": sorted((_pub_user(u) for u in _auth["users"].values()),
+                            key=lambda x: x.get("created") or 0)}
+
+
+@app.post("/admin/users")
+def admin_add(request: Request, body: dict) -> dict:
+    _auth_guard(request, admin=True)
+    _load_auth()
+    name = _valid_name((body.get("name") or "").strip())
+    if name in _auth["users"]:
+        raise HTTPException(409, detail={"error": {"message": "такое имя уже есть",
+                                                   "type": "invalid_request_error"}})
+    role = body.get("role") or "user"
+    if role not in ("admin", "user"):
+        raise HTTPException(400, detail={"error": {"message": "роль: admin | user",
+                                                   "type": "invalid_request_error"}})
+    u = _new_user(name, _valid_pw(body.get("password")), role)
+    return {"user": _pub_user(u)}
+
+
+def _admins_count() -> int:
+    return sum(1 for u in _auth["users"].values() if u.get("role") == "admin")
+
+
+@app.post("/admin/users/{uid}")
+def admin_edit(request: Request, uid: str, body: dict) -> dict:
+    _auth_guard(request, admin=True)
+    _load_auth()
+    u = _auth["users"].get(uid)
+    if not u:
+        raise HTTPException(404, detail={"error": {"message": "пользователя нет", "type": "invalid_request_error"}})
+    if "password" in body:
+        _set_password(u, _valid_pw(body["password"]))
+    if "role" in body:
+        role = body["role"]
+        if role not in ("admin", "user"):
+            raise HTTPException(400, detail={"error": {"message": "роль: admin | user",
+                                                       "type": "invalid_request_error"}})
+        if u["role"] == "admin" and role != "admin" and _admins_count() <= 1:
+            raise HTTPException(409, detail={"error": {"message": "нельзя снять роль у последнего админа",
+                                                       "type": "invalid_request_error"}})
+        u["role"] = role
+        _save_users()
+    return {"user": _pub_user(u)}
+
+
+@app.delete("/admin/users/{uid}", status_code=204)
+def admin_del(request: Request, uid: str):
+    me_u = _auth_guard(request, admin=True)
+    _load_auth()
+    if uid == me_u["id"]:
+        raise HTTPException(409, detail={"error": {"message": "нельзя удалить себя",
+                                                   "type": "invalid_request_error"}})
+    u = _auth["users"].get(uid)
+    if not u:
+        raise HTTPException(404, detail={"error": {"message": "пользователя нет", "type": "invalid_request_error"}})
+    if u.get("role") == "admin" and _admins_count() <= 1:
+        raise HTTPException(409, detail={"error": {"message": "нельзя удалить последнего админа",
+                                                   "type": "invalid_request_error"}})
+    del _auth["users"][uid]
+    _save_users()
+    _auth["sessions"] = {t: s for t, s in _auth["sessions"].items() if s.get("user") != uid}
+    _save_sessions()
+    try:
+        (_auth_dir() / "settings" / f"{uid}.json").unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+@app.get("/admin/settings")
+def admin_get_sys(request: Request) -> dict:
+    """Системные настройки (адрес/порт для подсказки на экране входа; применяются при старте)."""
+    _auth_guard(request, admin=True)
+    try:
+        return json.loads((_auth_dir() / "sys.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+@app.put("/admin/settings")
+def admin_put_sys(request: Request, body: dict) -> dict:
+    _auth_guard(request, admin=True)
+    cur = {}
+    try:
+        cur = json.loads((_auth_dir() / "sys.json").read_text())
+    except (OSError, ValueError):
+        pass
+    for k in ("url", "host", "port"):
+        if k not in body:
+            continue
+        v = body[k]
+        if k == "port" and v not in (None, ""):
+            try:
+                v = int(v)
+            except (TypeError, ValueError):
+                raise HTTPException(400, detail={"error": {"message": "порт — число",
+                                                           "type": "invalid_request_error"}})
+            if not (1 <= v <= 65535):
+                raise HTTPException(400, detail={"error": {"message": "порт: 1-65535",
+                                                           "type": "invalid_request_error"}})
+        if k == "url" and v:
+            v = str(v).strip()
+            if not re.match(r"^https?://[^\s]+/?$", v):
+                raise HTTPException(400, detail={"error": {"message": "адрес: http(s)://хост[:порт]",
+                                                           "type": "invalid_request_error"}})
+        if v is None or v == "":
+            cur.pop(k, None)               # пустое значение = вернуть к дефолту
+        else:
+            cur[k] = v
+    _auth_dir().mkdir(parents=True, exist_ok=True)
+    (_auth_dir() / "sys.json").write_text(json.dumps(cur, ensure_ascii=False))
+    return cur
 
 
 @app.middleware("http")
@@ -1046,6 +1448,17 @@ def main(argv: list[str] | None = None) -> None:
             os.environ[key] = val
     if a.data:
         globals()["DATA_DIR"] = Path(a.data)
+    # Системные настройки из админ-панели (auth/sys.json): хост и порт применяются на
+    # старте, если не заданы явно (аргумент CLI или SERVIM_HOST / SERVIM_PORT).
+    sys_cfg = {}
+    try:
+        sys_cfg = json.loads((Path(DATA_DIR) / "auth" / "sys.json").read_text())
+    except (OSError, ValueError):
+        pass
+    if not a.host and not os.environ.get("SERVIM_HOST") and sys_cfg.get("host"):
+        a.host = str(sys_cfg["host"])
+    if os.environ.get("SERVIM_PORT") is None and a.port == 8090 and sys_cfg.get("port"):
+        a.port = int(sys_cfg["port"])
     uvicorn.run(app, host=a.host, port=a.port)
 
 

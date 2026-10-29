@@ -4,12 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=1.9.1">
+<link rel="stylesheet" href="./app.css?v=2.0.0">
 </head>
 <body>
 <header>
   <span class="brand"><i id="lamp"></i><h1>Servim</h1></span>
   <span class="grow"></span>
+  <span id="who" class="who" hidden data-tip="профиль и настройки"><b id="uname"></b></span>
+  <button class="icobtn" id="users" hidden data-tip="Пользователи и система (админ)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 19c.5-3.5 3-5.5 6.5-5.5s6 2 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M14.5 19c.4-2.8 2.2-4.4 4.8-4.4 2.4 0 4 1.5 4.4 4.4"/></svg></button>
   <button class="icobtn" id="gear" data-tip="Настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1v.3a2 2 0 1 1-4 0v-.2a1.6 1.6 0 0 0-2.7-1.1l-.1.1a2 2 0 1 1-2.8-2.8l.1.1A1.6 1.6 0 0 0 4.6 15H4.4a2 2 0 1 1 0-4h.2a1.6 1.6 0 0 0 1.1-2.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.6 1.6 0 0 0 12 5.6a1.6 1.6 0 0 0 1.5-1.1V4.4a2 2 0 1 1 4 0v.2a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8 1.6 1.6 0 0 0 1.5 1h.2a2 2 0 1 1 0 4h-.2a1.6 1.6 0 0 0-1.5 1z"/></svg></button>
   <div class="sheet" id="cfg" hidden>
     <h3>Как распознаём</h3>
@@ -27,11 +29,14 @@
     <p class="hintx">Применяется к новым загружаемым файлам.</p>
     <h3>Подключение</h3>
     <label class="fld"><span>Адрес сервера</span><input id="c_url" type="text" placeholder="http://192.168.10.149:8090/" spellcheck="false"></label>
-    <label class="fld"><span>API key</span><input id="c_key" type="password" placeholder="пока не требуется" spellcheck="false"></label>
+    <label class="fld"><span>API key</span><input id="c_key" type="password" placeholder="свой ключ — в профиле; поле для чужого сервера" spellcheck="false"></label>
     <h3>Профиль</h3>
-    <label class="fld"><span>Имя пользователя</span><input id="c_user" type="text" placeholder="будет использоваться позже" spellcheck="false"></label>
-    <label class="fld"><span>Токен</span><input id="c_tok" type="password" placeholder="будет использоваться позже" spellcheck="false"></label>
-    <p class="hintx" id="cfgwhy">Адрес применяется сразу, остальное — когда сервер начнёт их требовать. Значения хранятся только в этом браузере.</p>
+    <div id="prof" hidden>
+      <p class="hintx profwho" id="prof_who"></p>
+      <label class="fld"><span>Мой API-ключ (для скриптов и внешних клиентов)</span><input id="p_key" type="text" readonly spellcheck="false"></label>
+      <div class="actx"><button class="tbtn" id="p_out">выйти</button></div>
+    </div>
+    <p class="hintx" id="cfgwhy">Адрес применяется сразу; настройки пользователя хранятся на сервере и следуют за тобой с любого устройства.</p>
     <div class="actx"><button class="tbtn" id="c_reset" data-tip="сбросить адрес к адресу этой страницы">Сбросить</button><button class="tbtn pri" id="c_ok" data-tip="закрыть">Готово</button></div>
     <p class="hintx ver2" id="vcopy"></p>
   </div>
@@ -103,7 +108,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=1.9.1"></script>
+<script src="./app.js?v=2.0.0"></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">
@@ -117,6 +122,38 @@
     <div class="ask" role="alertdialog" aria-modal="true" aria-labelledby="askt">
       <h4 id="askt">Удалить?</h4><p id="askx"></p>
       <div class="acts"><button class="g" id="askno">Отмена</button><button class="d" id="askyes">Удалить</button></div>
+    </div>
+  </div>
+  <!-- ============================ вход / первый запуск -->
+  <div class="mask" id="loginmask" hidden>
+    <div class="ask lgn" role="dialog" aria-modal="true" aria-labelledby="lt">
+      <h4 id="lt">Вход</h4>
+      <p id="lx">Свой профиль: у каждого пользователя свои настройки и своя история.</p>
+      <label class="fld"><span>Имя</span><input id="lname" autocomplete="username" spellcheck="false"></label>
+      <label class="fld"><span>Пароль</span><input id="lpass" type="password" autocomplete="current-password"></label>
+      <label class="fld" id="lpass2f" hidden><span>Пароль ещё раз</span><input id="lpass2" type="password" autocomplete="new-password"></label>
+      <p class="errx" id="lerr"></p>
+      <div class="acts"><button class="g" id="lok">войти</button></div>
+    </div>
+  </div>
+  <!-- ============================ админ: пользователи и система -->
+  <div class="mask" id="adminmask" hidden>
+    <div class="adm" role="dialog" aria-modal="true" aria-labelledby="adt">
+      <h3 id="adt">Пользователи <button class="close" id="adclose">закрыть</button></h3>
+      <div class="adtw" id="adtw">
+        <table class="adt"><thead><tr><th>Имя</th><th>Роль</th><th>Создан</th><th></th></tr></thead>
+          <tbody id="adtb"><tr><td colspan="4">загрузка…</td></tr></tbody></table>
+      </div>
+      <div class="addrow">
+        <input id="adname" placeholder="имя (латиница, цифры, . _ -)" spellcheck="false">
+        <input id="adpass" type="password" placeholder="пароль (от 4)">
+        <select id="adrole"><option value="user">пользователь</option><option value="admin">админ</option></select>
+        <button class="tbtn pri" id="adadd">добавить</button>
+      </div>
+      <h3>Система</h3>
+      <label class="fld"><span>Адрес сервера (подсказка на экране входа)</span><input id="s_url" type="text" placeholder="http://192.168.10.149:8090/" spellcheck="false"></label>
+      <label class="fld"><span>Порт (применится после перезапуска сервиса)</span><input id="s_port" inputmode="numeric" placeholder="8090"></label>
+      <div class="actx"><button class="tbtn pri" id="s_save">сохранить</button></div>
     </div>
   </div>
 </body>

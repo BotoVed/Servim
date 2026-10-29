@@ -12,13 +12,13 @@ const mkEnv = () => {
     disabled: false, className: '', dataset: {}, files: [], checked: false, children: [],
     style: { setProperty() {} },
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-    addEventListener() {}, appendChild() {}, append(...a) { this.children.push(...a); },
+    addEventListener() {}, append(...a) { this.children.push(...a); },
     querySelector: () => mk('div'), querySelectorAll: () => [], closest: () => null,
     focus() {}, setPointerCapture() {}, releasePointerCapture() {} });
   const $ = (s) => (els[s] ||= mk(s.includes('table') ? 'table' : 'div'));
   const ctx = { console, setTimeout, clearTimeout, Date, Math, JSON, parseInt, parseFloat,
     encodeURIComponent, NodeFilter: { FILTER_SHOW_TREE_WALKER: 1 }, els,
-    document: { body: mk('body'), createElement: mk, addEventListener() {}, hidden: false,
+    document: { body: Object.assign(mk('body'), { appendChild(){}, removeChild(){} }), createElement: mk, addEventListener() {}, hidden: false,
       querySelector: $, querySelectorAll: () => [] },
     localStorage: { getItem: () => null, setItem() {} },
     navigator: { onLine: true }, location: { href: "", pathname: "/ui/index.html" },

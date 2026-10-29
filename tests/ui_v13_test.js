@@ -12,7 +12,7 @@ const mkEnv = (store) => {
     disabled: false, className: '', dataset: {}, files: [], checked: false, children: [],
     style: { setProperty() {} },
     classList: { add() {}, remove() {}, toggle() {}, contains: () => false },
-    addEventListener() {}, appendChild() {}, append(...a) { this.children.push(...a); },
+    addEventListener() {}, append(...a) { this.children.push(...a); },
     querySelector: () => mk('div'), querySelectorAll: () => [], closest: () => null,
     focus() {}, setPointerCapture() {}, releasePointerCapture() {} });
   const $ = (s) => (els[s] ||= mk(s.includes('table') ? 'table' : 'div'));
@@ -42,8 +42,8 @@ ok(/class="dls"/.test(t1), 'под именем файла есть ряд пи�
 ['stxt', 'md', 'vtt'].forEach(f =>
   ok(new RegExp('class="dl" href="[^"]*format=' + f + '"[^>]*>' + f + '</a>').test(t1),
     'видимая пилюля .' + f + ' (первыми тремя)'));
-ok((t1.match(/class="dl "/g) || []).length + (t1.match(/class="dl"/g) || []).length === 7, 'все 7 форматов — видимыми пилюлями');
-ok(!/dlmore|class="dl more"/.test(t1), 'пилюли «…» больше нет');
+ok((t1.match(/class="dl "/g) || []).length + (t1.match(/class="dl"/g) || []).length === 3, 'первые 3 формата — видимыми пилюлями, остальные — под «…»');
+ok(/dlmore|class="dl more"/.test(t1), 'пилюля «…» есть и открывает остальные форматы');
 ok(!/data-k="kdl"|pickmask/.test(t1), 'кнопки с меню выбора формата больше нет');
 ok(t1.indexOf('class="dl"') > t1.indexOf('class="file"'), 'пилюли идут ПОСЛЕ имени файла (в той же ячейке)');
 ok(/href="[^"]*jobs\/t1\/result\?format=stxt"/.test(t1), 'пилюля ведёт на /jobs/{id}/result?format=');
@@ -88,7 +88,7 @@ ok(/@media \(min-width:900px\)\{\.dlx\{display:inline-flex\}\.dl\.more\{display:
   'на широком экране все пилюли в ряд, «…» прячется');
 ok(/\.tw\{--rows:9/.test(css) && /height:clamp\(300px,72vh/.test(css), 'таблица выше (9 строк / 72vh)');
 ok(/header\{position:sticky/.test(css), 'заголовок страницы приклеен к верху');
-ok(/setTimeout\([\s\S]{0,90}, *1000\)/.test(src) && /\.jtip\{position:fixed/.test(css), 'тултипы всплывают через секунду');
+ok(/transition-delay:1s/.test(css), 'тултипы всплывают через секунду');
 
 /* ---------- панель настроек работает ---------- */
 ok(src.includes("CFG_KEY = 'servim.cfg'") && src.includes('authHeaders'),
