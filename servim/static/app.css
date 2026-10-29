@@ -9,6 +9,7 @@
   --ok:#34d399;--warn:#fbbf24;--err:#fb7185;--vio:#a78bfa;--mag:#e879f9;
   --r:7px;--r2:5px;--rowh:46px}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}   /* display:block у .fld/.sheet не должен перебивать hidden */
 html,body{margin:0}
 body{background:
     radial-gradient(1200px 500px at 15% -10%,rgba(34,224,208,.07),transparent 60%),
