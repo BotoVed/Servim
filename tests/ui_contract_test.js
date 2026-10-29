@@ -101,5 +101,11 @@ ok(/const DRAFT = \{\}/.test(js) && /DRAFT\[\`\$\{S\.openId\}\|/.test(js) && /dr
 ok(/Object\.keys\(DRAFT\)\.forEach\(k => \{ if \(k\.startsWith\(id \+ .\|.\)\) delete DRAFT\[k\]; \}\)/.test(js),
   'после успешного сохранения черновик стирается');
 
+/* 11. v1.9.0: перерисовка модалки держит скролл, скроллбары толще */
+ok(/const _segs = \$\('#segs'\), _st = _segs\.scrollTop;/.test(js) && /_segs\.scrollTop = _st;/.test(js),
+  'show() переживает перерисовку с той же позицией скролла #segs');
+ok(/\.tw::-webkit-scrollbar,\.segs::-webkit-scrollbar\{width:14px/.test(css),
+  'скроллбары .tw/.segs — 14px, попадаться мышкой реально');
+
 console.log(fail.length ? '\nФАЙЛОВ: ' + fail.length + '\n - ' + fail.join('\n - ') : '\nконтракт в порядке');
 process.exit(fail.length ? 1 : 0);

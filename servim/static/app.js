@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '1.8.0';   // синхронно с ?v= в index.html
+const UI_VER = '1.9.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -281,7 +281,8 @@ async function show(id) {
     localStorage.setItem(LS + '.fmt', $('#fmt').value);
     location.href = dlUrl(id, $('#fmt') ? $('#fmt').value : 'srt');
   };
-  $('#segs').innerHTML = r.segments.map(s => {
+  const _segs = $('#segs'), _st = _segs.scrollTop;   // позиция скролла переживает перерисовку
+  _segs.innerHTML = r.segments.map(s => {
     const k = Math.max(0, Object.keys(raw2).indexOf(s.speaker)) % COL.length;
     const words = (s.words || []).slice(0, 400)
       .map(w => `<b title="${w.start?.toFixed?.(2) ?? ''}–${w.end?.toFixed?.(2) ?? ''}">${esc(w.word)}</b>`).join(' ');
@@ -290,6 +291,7 @@ async function show(id) {
         <div class="meta">${(s.start ?? 0).toFixed(2)}–${(s.end ?? 0).toFixed(2)} с</div></div>
       <div><div class="tx">${esc((s.text || '').trim())}</div>${words ? `<div class="meta" style="margin-top:4px">${words}</div>` : ''}</div></div>`;
   }).join('');
+  _segs.scrollTop = _st;
 
   // именованные спикеры: правится здесь и сразу уходит на сервер
   const draftVal = (s) => DRAFT[`${id}|${s.raw}`] ?? (s.name || '');

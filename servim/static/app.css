@@ -170,10 +170,12 @@ tr:hover td.c-st .ck input,tr.sel td.c-st .ck input{border-color:var(--acc)}
   box-shadow:0 26px 70px rgba(0,0,0,.6)}
 .res>h3{margin:0;padding:11px 16px 9px;font-size:12px;font-weight:640;color:#cfe0db;display:flex;
   gap:10px;align-items:center;flex-wrap:wrap}
-.segs{flex:1 1 auto;min-height:120px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;
-  scrollbar-color:#223033 transparent;-webkit-overflow-scrolling:touch}
-.segs::-webkit-scrollbar{width:10px}
-.segs::-webkit-scrollbar-thumb{background:#223033;border-radius:99px;border:3px solid #080e10}
+.segs{flex:1 1 auto;min-height:120px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:auto;
+  scrollbar-color:#2e4147 transparent;-webkit-overflow-scrolling:touch}
+.tw::-webkit-scrollbar,.segs::-webkit-scrollbar{width:14px;height:14px}
+.tw::-webkit-scrollbar-track,.segs::-webkit-scrollbar-track{background:transparent}
+.tw::-webkit-scrollbar-thumb,.segs::-webkit-scrollbar-thumb{background:#2e4147;border-radius:99px;border:2px solid #080e10}
+.tw::-webkit-scrollbar-thumb:hover,.segs::-webkit-scrollbar-thumb:hover{background:#3d555c}
 .seg{display:grid;grid-template-columns:92px 1fr;gap:12px;padding:9px 16px;border-bottom:1px solid #121a1c}
 .seg:last-child{border:0}
 .seg:hover{background:#0d1618}
