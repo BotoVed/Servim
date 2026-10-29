@@ -63,8 +63,9 @@ document.addEventListener('pointerout', (e) => {
 }, true);
 document.addEventListener('scroll', tipHide, true);
 
+const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '1.7.3';   // синхронно с ?v= в index.html
+const UI_VER = '1.8.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -229,7 +230,12 @@ function render() {
   $('#start').disabled = !(plan > 0 || inFlight > 0);
   $('#stop').disabled = !(S.health.busy || inFlight > 0);
   $('#lamp').className = S.health.busy ? 'busy' : (S.health.status === 'ready' ? 'ok' : (S.health.error ? 'bad' : ''));
-  if (S.openId) show(S.openId);
+  // модалку не перестраиваем, пока фокус внутри неё: каждые ~1.6 с её
+  // пересоздание сносило фокус и набранный текст в полях имён спикеров
+  if (S.openId) {
+    const ae = document.activeElement;
+    if (!(ae && ae.closest && ae.closest('#mask'))) show(S.openId);
+  }
 }
 
 function openRes() { $('#mask').hidden = false; }
@@ -286,9 +292,10 @@ async function show(id) {
   }).join('');
 
   // именованные спикеры: правится здесь и сразу уходит на сервер
+  const draftVal = (s) => DRAFT[`${id}|${s.raw}`] ?? (s.name || '');
   const spk = (j.speakers || []).map(s =>
     `<span class="chip"><b style="color:${FG[Math.max(0, (j.speakers || []).indexOf(s)) % FG.length]}">${esc(s.label)}</b>
-      <input data-raw="${esc(s.raw)}" value="${esc(s.name || '')}" placeholder="${esc(s.raw)}" aria-label="имя спикера ${esc(s.label)}"></span>`).join('');
+      <input data-raw="${esc(s.raw)}" value="${esc(draftVal(s))}" placeholder="${esc(s.raw)}" aria-label="имя спикера ${esc(s.label)}"></span>`).join('');
   $('#spk').innerHTML = spk + (spk ? ' <button id="spksave">сохранить имена</button>' : '');
   const save = $('#spksave');
   if (save) save.onclick = async () => {
@@ -296,7 +303,9 @@ async function show(id) {
     $$('#spk input').forEach(i => { const v = i.value.trim(); if (v) map[i.dataset.raw] = v; });
     try {
       await api(EP + `/jobs/${id}/speakers`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(map) });
-      S.details.delete(id); toast('имена сохранены — они попадут в srt/vtt/tsv/md');
+      S.details.delete(id);
+      Object.keys(DRAFT).forEach(k => { if (k.startsWith(id + '|')) delete DRAFT[k]; });
+      toast('имена сохранены — они попадут в srt/vtt/tsv/md');
       await show(id);
     } catch (e) { toast('не сохранить: ' + e.message); }
   };
@@ -413,6 +422,11 @@ function wire() {
   $('#model').onchange = saveStore;
   $('#rclose').onclick = () => { S.openId = null; hideRes(); };
   $('#mask').onclick = (e) => { if (e.target.id === 'mask') { S.openId = null; hideRes(); } };
+  // черновик имён спикеров: пишем каждое нажатие, чтобы перерисовка не стирала набранное
+  $('#spk').addEventListener('input', (e) => {
+    const i = e.target; if (!i || !i.dataset || !i.dataset.raw) return;
+    if (S.openId) DRAFT[`${S.openId}|${i.dataset.raw}`] = i.value;
+  });
 
   $('#del').onclick = () => del([...S.picked]).catch(e => toast('не вышло: ' + e.message));
   $('#selpall').onclick = () => { S.picked = new Set(S.jobs.map(j => j.id)); render(); };

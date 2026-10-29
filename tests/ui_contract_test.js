@@ -92,5 +92,14 @@ ok(!/tbtn:disabled\[data-tip\]/.test(css) && /closest\('\[data-tip\]'\)/.test(js
 /* 9b. v1.7.2: у верхней панели подсказка рисуется под кнопкой (над — обрезает .card{overflow:hidden}); у неактивных кнопок показывается */
 
 
+
+/* 10. v1.8.0: модалка не сносит фокус и не стирает набранные имена */
+ok(/document\.activeElement[\s\S]{0,140}closest\('#mask'\)/.test(js),
+  'модалка не перестраивается, пока фокус внутри неё (фокус в полях имён не слетает)');
+ok(/const DRAFT = \{\}/.test(js) && /DRAFT\[\`\$\{S\.openId\}\|/.test(js) && /draftVal\(s\)/.test(js),
+  'набранные имена спикеров живут между перерисовками (черновик в DRAFT)');
+ok(/Object\.keys\(DRAFT\)\.forEach\(k => \{ if \(k\.startsWith\(id \+ .\|.\)\) delete DRAFT\[k\]; \}\)/.test(js),
+  'после успешного сохранения черновик стирается');
+
 console.log(fail.length ? '\nФАЙЛОВ: ' + fail.length + '\n - ' + fail.join('\n - ') : '\nконтракт в порядке');
 process.exit(fail.length ? 1 : 0);
