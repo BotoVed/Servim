@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.3.0';   // синхронно с ?v= в index.html
+const UI_VER = '2.4.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -419,7 +419,7 @@ function render() {
           <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span></div>
           <div class="rowmeta">
             ${res}
-            <div class="meta"><span class="pill ${j.type || ''}">${esc(j.type || '?')}</span><span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="spk">${s.speakers ? `${s.speakers} ${plural(s.speakers, 'спикер', 'спикера', 'спикеров')}` : '—'}</span>${stat}</div>
+            <div class="meta"><span class="pill ${j.type || ''}">${esc(j.type || '?')}</span>${S.me?.user?.role === 'admin' && j.owner ? `<span class="own">@${esc(String(j.owner))}</span>` : ''}<span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="spk">${s.speakers ? `${s.speakers} ${plural(s.speakers, 'спикер', 'спикера', 'спикеров')}` : '—'}</span>${stat}</div>
             ${(j.status === 'done' && j.note) ? `<div class="sub"><span class="note">${esc(String(j.note).slice(0, 90))}</span></div>` : ''}
           </div>
         </td>
@@ -558,8 +558,7 @@ function renderUpl() {                          // модалка очереди
   const live = S.upl.filter(i => i.status === 'loading' || i.status === 'queued');
   $('#uplb').hidden = !S.upl.length;
   const b = $('#uplb .tl'); if (b) b.textContent = `загрузки${live.length ? ' · ' + live.length : ''}`;
-  $('#ulm').textContent = S.upl.length ? `${live.length ? live.length + ' в процессе' : 'все завершены'} · ${S.upl.length} всего` : '';
-  $('#upllist').innerHTML = S.upl.map((it, i) => {
+  $('#ulm').textContent = S.upl.length ? `${live.length ? live.length + ' в процессе' : 'все завершены'} · ${S.upl.length} всего` : '';  $('#upllist').innerHTML = S.upl.map((it, i) => {
     const st = it.status === 'done' ? 'готово' : it.status === 'error' ? `ошибка: ${it.err || '—'}` :
       it.status === 'cancel' ? 'убрано из очереди' : `загрузка ${it.pct}%`;
     return `<div class="upli${it.status === 'done' ? ' ok' : it.status === 'error' ? ' bad' : ''}">
@@ -573,11 +572,23 @@ function renderUpl() {                          // модалка очереди
     if (it.status === 'loading' && it.x) it.x.abort();   // прерываем — статус поменяет onabort
     else { S.upl.splice(+btn.dataset.i, 1); renderUpl(); }
   });
+  uplMaybeFinish();                              // сами закроемся и почистим, когда всё загрузилось
+}
+let uplTimer = null;
+function uplMaybeFinish() {                     // всё загрузилось → закрываем модалку и чистим список (история не нужна)
+  if (!S.upl.length || S.upl.some(i => i.status === 'loading' || i.status === 'queued')) return;
+  if (S.upl.some(i => i.status === 'error')) return;      // ошибки не прячем — закроет пользователь
+  if (!uplTimer) uplTimer = setTimeout(() => { uplTimer = null; uplHide(); }, 900);
+}
+function uplHide() {                            // закрытие модалки: пустой список не держим; с загрузками — закрываем, но их оставляем (кнопка «убрать» жива)
+  if (!S.upl.some(i => i.status === 'loading' || i.status === 'queued')) S.upl.length = 0;
+  uplOpen(false); renderUpl();
 }
 function uplOpen(on) { $('#umask').hidden = !on; }
 async function addFiles(files) {
   const list = [...files].filter(f => f && f.size);
   if (!list.length) return;
+  if (uplTimer) { clearTimeout(uplTimer); uplTimer = null; }   // новый файл откладывает авто-закрытие
   const f = store();
   const fresh = [];
   for (const file of list) {
@@ -697,8 +708,8 @@ function wire() {
   $('#rclose').onclick = () => { S.openId = null; hideRes(); };
   $('#mask').onclick = (e) => { if (e.target.id === 'mask') { S.openId = null; hideRes(); } };
   $('#uplb').onclick = () => { renderUpl(); uplOpen(true); };       // индикатор очереди → модалка «Загрузки»
-  $('#ulclose').onclick = () => uplOpen(false);
-  $('#umask').onclick = (e) => { if (e.target.id === 'umask') uplOpen(false); };
+  $('#ulclose').onclick = () => uplHide();
+  $('#umask').onclick = (e) => { if (e.target.id === 'umask') uplHide(); };
   // черновик имён спикеров: пишем каждое нажатие, чтобы перерисовка не стирала набранное
   $('#spk').addEventListener('input', (e) => {
     const i = e.target; if (!i || !i.dataset || !i.dataset.raw) return;
@@ -853,6 +864,7 @@ function wire() {
   let me = null;
   try { me = await api(EP + 'me', { quiet401: true }); } catch (e) { me = null; }
   if (!me || !me.user) { showLogin('login'); return; }
+  S.me = me;                                   // роль для рендера (владелец в строке — админу)
   applyServerSettings(me.settings);
   fillProfile(me.user);
   if (me.user.role === 'admin') { $('#ufiltw').hidden = false; loadUFilter(); }

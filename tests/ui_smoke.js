@@ -286,4 +286,33 @@ const js = fs.readFileSync(ARG('app.js'), 'utf8');   // исходник — д�
     check('ряд пилюль ровно один', (rowHtml.match(/class="dls"/g) || []).length === 1);
   }
 
+  // ——— владелец в строке (только админ) + позиция в очереди в статусе ———
+  {
+    const rq = { id: 'job-q', name: 'q.wav', status: 'queued', owner: 'boss', queue_pos: 2, type: 'wav', created: 1 };
+    vm.runInContext("S.me = { user: { role: 'admin', name: 'root' } }; S.jobs = [__rq]; render();", Object.assign(ctx, { __rq: rq }));
+    const h = q('#tb').innerHTML;
+    check('админ видит @владельца рядом с типом/длительностью', /<span class="own">@boss<\/span>/.test(h) && h.indexOf('own') < h.indexOf('dur'));
+    check('в статусе — позиция в очереди', /в очереди · 2-я/.test(h), h.slice(0, 200));
+    vm.runInContext("S.me = { user: { role: 'user', name: 'boss' } }; render();", ctx);
+    check('обычному юзеру @владельца нет', !/class="own"/.test(q('#tb').innerHTML));
+    vm.runInContext("S.me = null; S.jobs = []; render();", ctx);
+  }
+
+  // ——— очередь загрузок: авто-закрытие и очистка (история не нужна) ———
+  {
+    vm.runInContext(`
+      __fire = null; setTimeout = (fn, ms) => { __fire = fn; return ms; };
+      S.upl = [{ name: 'a.wav', size: 10, pct: 100, status: 'done', err: '', x: null, p: Promise.resolve() }];
+      $('#umask').hidden = false; renderUpl();`, ctx);
+    check('модалка открыта до авто-закрытия', q('#umask').hidden === false);
+    vm.runInContext('__fire()', ctx);
+    check('всё загрузилось → модал закрылась сама', q('#umask').hidden === true);
+    check('список загрузок очищен (история не нужна)', vm.runInContext('S.upl.length', ctx) === 0);
+    vm.runInContext(`
+      S.upl = [{ name: 'b.wav', size: 10, pct: 40, status: 'error', err: 'сеть', x: null, p: Promise.resolve() }];
+      $('#umask').hidden = false; renderUpl();`, ctx);
+    check('ошибка → модал не закрывается сама', q('#umask').hidden === false, `hidden=${q('#umask').hidden}`);
+    vm.runInContext('S.upl = []; S.me = null;', ctx);
+  }
+
 })().catch(e => { console.log('ИСКЛЮЧЕНИЕ:', e && e.stack || e); process.exit(1); });
