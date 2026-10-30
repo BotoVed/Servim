@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.2.1';   // синхронно с ?v= в index.html
+const UI_VER = '2.2.2';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -350,18 +350,19 @@ function isLive(j) { return ['queued', 'running', 'loading'].includes(j.status);
 function render() {
   const tb = $('#tb');
   if (!S.jobs.length) {
-    tb.innerHTML = '<tr><td colspan="6" class="empty">пусто — нажми «Добавить» или перетащи файлы на таблицу</td></tr>';
+    tb.innerHTML = '<tr><td colspan="2" class="empty">пусто — нажми «Добавить» или перетащи файлы на таблицу</td></tr>';
     S.picked.clear();
   } else {
     tb.innerHTML = S.jobs.map(j => {
       const s = j.summary || {};
       const pct = j.status === 'done' ? 100 : (j.status === 'running' ? (j.progress || 0) : 0);
-      const info = j.status === 'done'
-        ? (j.note ? `<span class="note">${esc(String(j.note).slice(0, 90))}</span>` : '')
-        : j.status === 'running' ? `${Math.round(j.progress || 0)}% · ${esc(j.stage || '')}`
-        : j.status === 'error' ? `<span style="color:var(--err)">${esc(String(j.error || 'ошибка').slice(0, 80))}</span>`
-        : j.status === 'plan' ? (S.queue.paused ? '<span class="paused">пауза — нажми «Старт»</span>' : 'ждёт очереди')
-        : j.status === 'queued' ? 'в очереди' : '';
+      const stat = j.status === 'done'
+        ? ''
+        : j.status === 'running' ? `<span class="st-tx">${Math.round(j.progress || 0)}% · ${esc(j.stage || '')}</span>`
+        : j.status === 'error' ? `<span class="st-tx bad">${esc(String(j.error || 'ошибка').slice(0, 80))}</span>`
+        : j.status === 'plan' ? (S.queue.paused ? '<span class="st-tx">пауза — нажми «Старт»</span>' : '<span class="st-tx">ждёт очереди</span>')
+        : j.status === 'queued' ? '<span class="st-tx">в очереди</span>' : '';
+      // предупреждение о результате (файл пропал, 0 сегментов и т.п.) — отдельной строкой под метой
       // скачивание — пилюлями под именем файла; пока результата нет — плейсхолдер тем же стилем
       const F = fmts();
       const GLYPH = { json: '{}', txt: 'A', srt: 'CC', vtt: 'CC', tsv: '#', md: 'M',
@@ -383,12 +384,11 @@ function render() {
         <td class="c-file">
           <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span></div>
           <div class="rowmeta">
-            ${info ? `<div class="sub">${info}</div>` : ''}
-            <div class="meta"><span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="pill ${j.type || ''}">${esc(j.type || '?')}</span></div>
+            ${res}
+            <div class="meta"><span class="pill ${j.type || ''}">${esc(j.type || '?')}</span><span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="spk">${s.speakers ? `${s.speakers} ${plural(s.speakers, 'спикер', 'спикера', 'спикеров')}` : '—'}</span>${stat}</div>
+            ${(j.status === 'done' && j.note) ? `<div class="sub"><span class="note">${esc(String(j.note).slice(0, 90))}</span></div>` : ''}
           </div>
-          ${res}
         </td>
-        <td class="c-spk"><span class="spk-n ${s.speakers ? '' : 'zero'}">${s.speakers || '—'}</span></td>
       </tr>`;
     }).join('');
   }
@@ -398,7 +398,7 @@ function render() {
             nd.textContent = k ? k : ''; }
   const n = S.jobs.length, run = S.jobs.filter(isLive).length;
   const plan = S.jobs.filter(j => j.status === 'plan').length, ready = S.jobs.filter(j => j.status === 'done').length;
-  $('#cnt').textContent = `${n} · ${plural(n, 'задача', 'задачи', 'задач')}`;
+  $('#cnt').textContent = `${n} ${plural(n, 'задача', 'задачи', 'задач')}`;
   // «Старт» нужен, пока есть незапущенные задачи или очередь на паузе; «Стоп» — пока что-то
   // идёт или ждёт своей очереди.
   $('#ndel').textContent = S.picked.size ? S.picked.size : '';
@@ -631,9 +631,16 @@ function wire() {
   $('#tb').addEventListener('click', (e) => {
     if (e.target.closest('[data-ck]')) return;      // чекбокс не выделяет строку
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
+    const now = Date.now();
+    if (S.lastClick && S.lastClick.id === tr.dataset.id && now - S.lastClick.t < 500) {
+      S.lastClick = null; openRow(tr); return;      // второй клик по той же строке — открыть
+    }
+    S.lastClick = { id: tr.dataset.id, t: now };
     S.sel = tr.dataset.id; render();               // одинарный клик — только выделение
   });
   const openRow = (tr) => { S.sel = S.openId = tr.dataset.id; render(); show(S.openId); };
+  // физический двойной клик ловим сами: после первого клика render() заменяет строки,
+  // и браузерный dblclick приходит уже на #tb без .file — и не открывает модалку
 
   const reload = () => { loadHealth().then(() => loadJobs()).catch(() => {}); };
   $('#edit').onclick = () => {
@@ -746,7 +753,7 @@ function wire() {
   try {
     await loadHealth();
   } catch (e) {
-    $('#tb').innerHTML = `<tr><td colspan="4" class="empty">сервис недоступен: ${esc(e.message)}`
+    $('#tb').innerHTML = `<tr><td colspan="2" class="empty">сервис недоступен: ${esc(e.message)}`
       + `<br>адрес сервера — адрес этой страницы; снаружи (через прокси) войди на прокси и перезагрузи страницу.`
       + `<br><button class="tbtn" id="retry">повторить</button></td></tr>`;
     const b = $('#retry'); if (b) b.onclick = () => location.reload();
@@ -766,7 +773,7 @@ function wire() {
     if (matchMedia('(hover:none)').matches) $('#mh').style.display = '';
     if (S.jobs.some(isLive) || S.health.busy) poll(); else render();
   } catch (e) {
-    $('#tb').innerHTML = `<tr><td colspan="4" class="empty">сервис недоступен: ${esc(e.message)}`
+    $('#tb').innerHTML = `<tr><td colspan="2" class="empty">сервис недоступен: ${esc(e.message)}`
       + `<br>адрес сервера — адрес этой страницы; снаружи (через прокси) войди на прокси и перезагрузи страницу.`
       + `<br><button class="tbtn" id="retry">повторить</button></td></tr>`;
     const b = $('#retry'); if (b) b.onclick = () => location.reload();

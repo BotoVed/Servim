@@ -45,16 +45,16 @@ ok(/data-flag="diarize"[\s\S]{0,400}data-flag="vad_filter"[\s\S]{0,400}data-flag
 /* 4. настройки: модель / язык / спикеры — внутри окна под шестерёнкой */
 ok(/id="cfg"[\s\S]*id="model"[\s\S]*id="lang"[\s\S]*id="maxs"/.test(head), 'модель/язык/спикеры — в окне настроек');
 ok(/\.sheet select,\.sheet input\{width:100%\}/.test(css), 'поля настроек растянуты на всю ширину');
-ok(/saveStore\(\);/.test(js.split('const save = () =>')[1] || ''), 'смена модели/языка сохраняется');
+ok(/\$\('#cfg select'\)\.forEach\(sel => sel\.onchange = saveStore\)/.test(js), 'смена модели/языка сохраняется (окно настроек)');
 
 /* 5. таблица: колонок «Тип»/«Длит.» нет, всё в ячейке с именем */
 ok(!/<th class="c-type"|<th class="c-dur"/.test(html), 'колонок «Тип» и «Длит.» в шапке нет');
 ok(/class="rowmeta"[\s\S]{0,300}class="meta"[\s\S]{0,200}class="pill/.test(js),
   'длительность и тип рисуются в ячейке имени');
-ok(js.indexOf('class="dur"') < js.indexOf('class="pill'), 'длительность левее типа');
+ok(js.indexOf('class="pill') < js.indexOf('class="dur"'), 'тип левее длительности (как в мокапе)');
 ok(/\.meta\{[^}]*margin-left:auto/.test(css), 'длительность и тип прижаты к правому краю');
 const empty = (js.match(/class="empty"[^<]*/) || [''])[0];
-ok(/colspan="4"/.test(js), 'заглушки строк пересчитаны под 4 колонки');
+ok(/colspan="2"/.test(js), 'заглушки строк пересчитаны под 2 колонки (отметка+файл)');
 
 /* 6. пилюли: все сразу, «…» нет */
 ok(!/data-k="dlmore"|class="dl more"/.test(js), 'кнопки «…» у пилюль нет');

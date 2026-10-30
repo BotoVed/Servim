@@ -98,7 +98,6 @@ td.c-st{display:flex;align-items:center;justify-content:center;gap:5px}
 .c-file{width:auto}
 .c-type{width:74px}
 .c-dur{width:74px;text-align:right;font-variant-numeric:tabular-nums}
-.c-spk{width:78px;text-align:center}
 
 
 /* статус */
@@ -236,9 +235,6 @@ kbd{background:#121b1d;border:1px solid var(--line2);border-radius:4px;padding:0
   .file{padding:2px 6px;margin:-2px -6px}
   .file>span{white-space:normal;font-size:13.5px;line-height:1.35;padding-right:22px}
   td.c-st{left:12px;top:12px;gap:6px}
-  td.c-type,td.c-dur,td.c-spk{display:inline-block;margin:7px 12px 0 0;text-align:left;width:auto}
-  td.c-dur::before,td.c-spk::before{content:attr(data-l) " ";color:var(--mut2);font-size:9.5px;
-    text-transform:uppercase;letter-spacing:.8px}
   .dl a{padding:6px 10px}
   .seg{grid-template-columns:74px 1fr;gap:9px;padding:9px 12px}
   .tip{font-size:10.5px;gap:8px}
@@ -329,14 +325,16 @@ h2{display:none}
 .tools select{display:none}
 
 
-/* ==================================================== v1.6.0 */
-/* имя файла занимает всё место, а длительность и тип — отдельной строкой справа */
-.rowmeta{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:3px}
+/* ============================================== v2.2.2: строка задачи в один блок */
+/* одна строка под именем: слева пилюли форматов, справа тип + длительность + спикеров + статус */
+.rowmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:3px}
 .rowmeta .sub{margin-top:0}
-.meta{display:inline-flex;align-items:center;gap:7px;margin-left:auto;flex:0 0 auto}
+.meta{display:inline-flex;align-items:center;gap:7px;margin-left:auto;flex:0 1 auto;min-width:0}
 .meta .dur{font-size:11.5px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.meta .spk{font-size:11.5px;color:var(--mut);white-space:nowrap}
+.st-tx{font-size:11.5px;color:var(--ok);white-space:nowrap}
+.st-tx.bad{color:var(--err)}
 .c-type,.c-dur{display:none}
-.c-spk{width:86px}
 /* пилюли формата — все в одну строку, «…» больше не нужен */
 .dls{flex-wrap:wrap;overflow:visible}
 
@@ -403,6 +401,6 @@ html,body{height:100%}
 .sheet select,.sheet input{width:100%}
 @media (max-width:780px){
   .rowmeta{flex-wrap:wrap}
-  .meta{margin-left:0;flex-wrap:nowrap}
+  .meta{margin-left:auto;flex-wrap:wrap}
   .wrap{min-height:calc(100vh - 20px)}
 }

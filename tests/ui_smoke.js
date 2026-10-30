@@ -99,7 +99,7 @@ const ARG = (f) => require('path').join(DIR, f);
     (tb.match(/data-id=/g) || []).length + ' vs ' + jobs.length);
   check('тип — пилюля у каждой задачи', (tb.match(/class="pill /g) || []).length === jobs.length);
   check('длительность', /\d+(\.\d)? с|\d+:\d\d/.test(tb));
-  check('спикеры', tb.includes('spk-n'));
+  check('спикеры в строке (мета)', tb.includes('class="spk"'));
   // ссылка на скачивание — только у готовых; у готовой — под именем файла
   {
     const ready = jobs.filter(j => j.status === 'done').length;

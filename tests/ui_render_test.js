@@ -36,7 +36,7 @@ let { ctx, els } = mkEnv();
 vm.runInContext(src + `\n;S.jobs=[{id:'t1',name:'Встреча.m4a',type:'m4a',duration:120,status:'done',
   progress:100,speakers:2,summary:{spkrs:2,segs:30}}];render();`, ctx, { filename: 'app.js' });
 const t1 = els['#tb'].innerHTML;
-ok(t1.split('<td').length - 1 === 3, 'готовая: 3 ячейки (отметка+имя, тип/длительность внутри имени, спикеры)');
+ok(t1.split('<td').length - 1 === 2, 'готовая: 2 ячейки (отметка, имя со всем блоком: пилюли+мета)');
 ok(/class="dls"/.test(t1), 'готовая: под именем есть ряд пилюль скачивания');
 ok(!/data-k="kdl"/.test(t1), 'готовая: прежней кнопки с меню выбора формата нет');
 ok(/class="dl" href="[^"]*format=stxt"[^>]*data-tip="скачать \.stxt"/.test(t1), 'готовая: пилюля — ссылка с data-tip');
