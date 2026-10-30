@@ -298,6 +298,16 @@ const js = fs.readFileSync(ARG('app.js'), 'utf8');   // исходник — д�
     vm.runInContext("S.me = null; S.jobs = []; render();", ctx);
   }
 
+  // ——— параметры только с заданием: нет синхронизации флагов на сервер; чипы параметров в модалке ———
+  {
+    const ih = fs.readFileSync(path.join(path.dirname(ARG('app.js')), 'index.html'), 'utf8');
+    check('index.html: ?v=2.5.0 у app.css и app.js', /app\.css\?v=2\.5\.0/.test(ih) && /app\.js\?v=2\.5\.0/.test(ih));
+    check('index.html: есть #rmo (чипы параметров результата)', /id="rmo"/.test(ih));
+    check("app.js: UI_VER 2.5.0", /UI_VER = '2\.5\.0'/.test(js));
+    check('app.js: pushUserSettings удалён (флаги не идут на сервер)', js.indexOf('pushUserSettings') === -1);
+    check('app.js: boot не перезаписывает флаги серверной копией', js.indexOf('st.ui') === -1);
+  }
+
   // ——— очередь загрузок: авто-закрытие и очистка (история не нужна) ———
   {
     vm.runInContext(`

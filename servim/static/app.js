@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.4.0';   // синхронно с ?v= в index.html
+const UI_VER = '2.5.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -185,20 +185,14 @@ function applyServerSettings(st) {
       const c = { ...st.cfg }; delete c.url;   // старое поле адреса игнорируем — теперь адрес всегда этой страницы
       localStorage.setItem(CFG_KEY, JSON.stringify({ ...cfg(), ...c }));
     }
-    if (st.ui && typeof st.ui === 'object') {
-      const cur = JSON.parse(localStorage.getItem(LS) || '{}');
-      localStorage.setItem(LS, JSON.stringify({ ...cur, ...st.ui }));
-    }
+    /* ПАРАМЕТРЫ РАСПОЗНАВАНИЯ (diarize/vad/…) НА СЕРВЕР НЕ СИНХРОНИЗИМ И С СЕРВЕРА НЕ ПРИМЕНЯЕМ:
+       они уходят ТОЛЬКО вместе с заданием (POST /jobs — замороженные options) и больше никуда —
+       иначе гонка: серверная копия при boot перезаписывала локальные тумблеры, и файл уходил
+       с чужими параметрами. Локальная копия (localStorage) — дефолт формы ЭТОГО устройства. */
   } catch (e) { /* настройки не критичны, не роняем загрузку */ }
 }
 
-function pushUserSettings() {
-  if (!S.user) return;
-  const ui = (() => { try { return JSON.parse(localStorage.getItem(LS) || '{}'); } catch (e) { return {}; } })();
-  api(EP + 'me/settings', { method: 'PUT', quiet401: true,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cfg: cfg(), ui }) }).catch(() => {});
-}
+
 
 async function adminOpen() {
   const m = $('#adminmask'); if (!m) return;
@@ -477,6 +471,7 @@ function ask(text, yes = 'Удалить') {
 async function show(id) {
   openRes();                                     // модалка открывается СРАЗУ — внутри крутится спиннер
   $('#segs').innerHTML = '<div class="segload"><div class="spin"></div><span>загружаю результат…</span></div>';
+  $('#rmo').hidden = true;                       // чипы параметров — только у готовой задачи
   const j = await detail(id);
   if (S.openId !== id) return;                     // пока ждали ответ, открыли другую строку
   const done = j.status === 'done' && !!((j.result || {}).segments || []).length;
@@ -487,6 +482,17 @@ async function show(id) {
   $('#rt').textContent = 'Результат · ' + (j.name.length > 54 ? j.name.slice(0, 54) + '…' : j.name);
   $('#rm').textContent = `${r.segments.length} сегм. · ${r.num_speakers || (j.speakers || []).length || 1} спик. · ${fmtDur(r.audio_duration || j.duration)}` +
     (r.language ? ` · ${r.language}` : '');
+  /* параметры, РЕАЛЬНО использованные при распознавании: заморожены в задании при загрузке.
+     Ответ на «почему тут нет спикеров»: диаризация выключена в ЭТОЙ строке — загрузи файл заново. */
+  const o = j.options || {};
+  const flag = (t, v) => `<span class="opt ${v ? '' : 'off'}">${t}: ${v ? 'вкл' : 'выкл'}</span>`;
+  $('#rmo').innerHTML =
+    flag('диаризация', !!o.diarize) +
+    flag('VAD', !!o.vad_filter) +
+    flag('слова/метки', !!o.word_timestamps) +
+    (o.language ? `<span class="opt">язык: ${esc(o.language)}</span>` : '') +
+    `<span class="opt">модель: ${esc(o.model || '?')}</span>`;
+  $('#rmo').hidden = false;
 
   const raw2 = {};
   (j.speakers || []).forEach(s => { raw2[s.raw] = s; });
@@ -661,7 +667,7 @@ function saveStore() {
   $$('[data-flag]').forEach(b => d[b.dataset.flag] = b.getAttribute('aria-pressed') === 'true');
   d.model = $('#model').value;
   localStorage.setItem(LS, JSON.stringify(d));
-  pushUserSettings();                      // настройки пользователя — тоже на сервер
+  /* флаги НЕ идут на сервер: они уйдут только вместе со следующим заданием */
 }
 function restore() {
   const d = store();
