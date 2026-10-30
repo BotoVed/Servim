@@ -38,6 +38,7 @@ from typing import Any
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 
 # --------------------------------------------------------------------------- конфиг
@@ -208,7 +209,7 @@ def _user_settings(uid: str) -> dict:
         return {}
 
 
-app = FastAPI(title="WhisperX ASR", version="1.2.0",
+app = FastAPI(title="WhisperX ASR", version="1.3.0",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
 
 # FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
@@ -1426,6 +1427,11 @@ async def _no_store_static(request, call_next):
 
 if STATIC_DIR.exists():
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+
+# Сжатие ответов: расшифровки — текст, жмутся ~10x (детали задачи со словами — МБ → сотни КБ).
+# Регистрируем ПОСЛЕДНИМ — стек строится в обратном порядке, gzip оказывается снаружи и видит
+# финальное тело. minimum_size=1024: мелкие ответы (/health, /me) не трогаем.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 def main(argv: list[str] | None = None) -> None:
