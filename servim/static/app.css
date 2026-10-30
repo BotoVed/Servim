@@ -183,6 +183,10 @@ tr:hover td.c-st .ck input,tr.sel td.c-st .ck input{border-color:var(--acc)}
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:var(--r2);
   margin-bottom:3px;letter-spacing:.5px}
 .tx{font-size:13.5px;overflow-wrap:anywhere}
+/* слова с таймкодами в модалке результата: обычный текст, НЕ flex-ряд (был баг с классом .meta) */
+.wts{margin-top:4px;font-size:11px;line-height:1.55;color:var(--mut);overflow-wrap:anywhere}
+.wts b{font-weight:500;color:var(--mut)}
+.wts b:hover{color:var(--acc)}
 .empty{color:var(--mut);font-size:13px;padding:30px 16px;text-align:center}
 .close{margin-left:auto;background:transparent;border:1px solid var(--line2);color:var(--mut);
   border-radius:var(--r2);padding:3px 9px;font:11px inherit;font-family:inherit;cursor:pointer}
@@ -225,12 +229,13 @@ kbd{background:#121b1d;border:1px solid var(--line2);border-radius:4px;padding:0
     overflow-x:auto;scrollbar-width:none}
   .mob-sel::-webkit-scrollbar{display:none}
   .mob-sel select{flex:1 0 auto;font-size:12px;padding:6px 8px}
-  table,tbody,tr,td{display:block;width:auto}
-  thead{display:none}
-  table{table-layout:auto}
-  tbody tr{padding:11px 12px 11px 44px;border-bottom:1px solid #141c1e}
-  td{border:0;padding:0}
-  td.c-st{position:absolute;left:12px;top:12px;width:auto;display:flex}
+  /* мобильная карточная раскладка — ТОЛЬКО таблица заданий; остальные таблицы (админка и пр.) остаются столбцами */
+  #tb, #tb tbody, #tb tr, #tb td{display:block;width:auto}
+  #tb thead{display:none}
+  #tb{table-layout:auto}
+  #tb tbody tr{padding:11px 12px 11px 44px;border-bottom:1px solid #141c1e}
+  #tb td{border:0;padding:0}
+  #tb td.c-st{position:absolute;left:12px;top:12px;width:auto;display:flex}
   td.c-file{padding-right:2px}
   .file{padding:2px 6px;margin:-2px -6px}
   .file>span{white-space:normal;font-size:13.5px;line-height:1.35;padding-right:22px}
@@ -354,7 +359,7 @@ h2{display:none}
 .adm h3{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px}
 .adm .close{margin-left:8px}
 .adtw{max-height:38vh;overflow:auto;border:1px solid var(--line2);border-radius:var(--r2)}
-.adt{width:100%;border-collapse:collapse;font-size:12.5px}
+.adt{width:100%;min-width:250px;border-collapse:collapse;font-size:12.5px}
 .adt th{text-align:left;font:600 10.5px/1 inherit;letter-spacing:.07em;text-transform:uppercase;
   color:var(--mut);padding:7px 8px;border-bottom:1px solid var(--line2)}
 .adt td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
@@ -386,6 +391,29 @@ h2{display:none}
 .jtip[hidden]{display:none}
 .dlx{display:inline-flex}
 .dl.more{display:none}
+
+/* ============================================== v2.2.4: тулбар по мокапу + фильтр по пользователю */
+/* старт — единственный акцентный; стоп — контурный тревожный; тумблеры — приглушённые с точкой */
+.tools .tbtn.start{background:var(--acc);border-color:var(--acc);color:#062322;
+  box-shadow:0 0 0 1px rgba(34,224,208,.35),0 8px 24px -12px rgba(34,224,208,.8)}
+.tools .tbtn.start:hover{background:var(--acc2);border-color:var(--acc2);color:#04211f}
+.tools .tbtn.start:disabled{background:#12211f;border-color:var(--line2);color:var(--mut);box-shadow:none;opacity:.55}
+.tools .tbtn.start .tl{font:650 12.5px/1 inherit;letter-spacing:.01em}
+.tools .tbtn.stop{background:transparent;border-color:rgba(251,113,133,.45);color:#ffc9d1}
+.tools .tbtn.stop:hover{background:rgba(251,113,133,.12);border-color:var(--err);color:#ffd9df}
+.tools .tbtn.stop:disabled{background:transparent;border-color:var(--line2);color:var(--mut)}
+.tools .tbtn.tgl[aria-pressed="true"]{background:rgba(52,211,153,.06);border-color:rgba(52,211,153,.5);
+  color:#7ee2a0;box-shadow:none}
+.tools .tbtn.tgl[aria-pressed="true"]::after{content:"";position:absolute;top:-3px;right:-3px;width:7px;height:7px;
+  border-radius:50%;background:var(--ok);box-shadow:0 0 9px rgba(52,211,153,.85)}
+.tools .tbtn.danger:hover{background:rgba(251,113,133,.12);border-color:rgba(251,113,133,.45);color:#ffd9df}
+.tools .ufiltw{display:inline-flex;align-items:center;margin-left:auto}
+.tools .ufiltw select{display:block;width:auto;min-width:120px;font-size:12px;color:var(--fg);background:#12211f;
+  border:1px solid var(--line2);border-radius:var(--r2);padding:5px 7px}
+@media (max-width:780px){
+  .tools select#ufilt{display:block;min-width:100px}  /* исключение из «.tools select{display:none}» */
+  .tools .ufiltw{margin-left:0}
+}
 @media (min-width:900px){.dlx{display:inline-flex}.dl.more{display:none}}
 /* таблица — на всю высоту экрана: карточка тянется, список растёт вместе с окном */
 html,body{height:100%}

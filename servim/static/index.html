@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=2.2.2">
+<link rel="stylesheet" href="./app.css?v=2.2.5">
 </head>
 <body>
 <header>
@@ -43,12 +43,12 @@
 
     <!-- ================================ панель инструментов -->
     <div class="tools">
-      <button class="tbtn pri lbl" id="add" data-tip="Выбрать файлы (или перетащить их на таблицу)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="tl">файлы</span></button>
+      <button class="tbtn lbl" id="add" data-tip="Выбрать файлы (или перетащить их на таблицу)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="tl">файлы</span></button>
       <input type="file" id="f" multiple hidden accept="audio/*,video/*,.wav,.mp3,.ogg,.m4a,.flac,.aac,.opus,.mp4,.mkv,.webm,.mov">
 
-      <button class="tbtn pri" id="start" disabled data-tip="Запустить обработку очереди"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg></button>
+      <button class="tbtn start lbl" id="start" disabled data-tip="Запустить обработку очереди"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg><span class="tl">старт</span></button>
 
-      <button class="tbtn pri" id="stop" disabled data-tip="Остановить очередь и прервать текущую задачу"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+      <button class="tbtn stop" id="stop" disabled data-tip="Остановить очередь и прервать текущую задачу"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
 
       <span class="sep"></span>
 
@@ -64,6 +64,8 @@
       <button class="tbtn tgl" data-flag="diarize" aria-pressed="true" data-tip="Диаризация — разделить, кто что сказал"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 11v2M8 8v8M12 4.5v15M16 8v8M20 11v2"/></svg><i class="badge g" id="n_diarize"></i></button>
       <button class="tbtn tgl" data-flag="vad_filter" aria-pressed="true" data-tip="VAD — вырезать тишину: быстрее и меньше выдуманных фраз"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v16"/><path d="M8 7v10M4 9.5v5M16 7v10M20 9.5v5"/><path d="M3 3l18 18" class="slash"/></svg></button>
       <button class="tbtn tgl" data-flag="word_timestamps" aria-pressed="true" data-tip="Таймкод на каждое слово"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h13"/><path d="M18.5 14.5v6M16 18h5"/></svg></button>
+      <!-- фильтр по пользователю (виден только админу, заполняется из /admin/users) -->
+      <label id="ufiltw" class="ufiltw" hidden data-tip="Показывать задачи выбранного пользователя"><select id="ufilt"><option value="">все пользователи</option></select></label>
       </div>
 
     <!-- ==================================================== таблица -->
@@ -103,7 +105,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=2.2.2" defer></script>
+<script src="./app.js?v=2.2.5" defer></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">

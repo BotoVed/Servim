@@ -109,6 +109,19 @@ const ARG = (f) => require('path').join(DIR, f);
     check('мёртвого маршрута /download?fmt= в строках нет', !tb.includes('/download?fmt='));
   }
   check('нет undefined/NaN', !tb.includes('undefined') && !tb.includes('NaN'), /undefined|NaN/.exec(tb)?.[0]);
+
+  // фильтр по пользователю (админ)
+  {
+    const owners = [...new Set(jobs.map(j => j.owner || ''))];
+    check('в фикстуре есть owner у задач', owners.length >= 2, JSON.stringify(owners));
+    const o = owners[0];
+    vm.runInContext(`S.uFilter = ${JSON.stringify(o)}; render();`, ctx);
+    const fo = [...q('#tb').innerHTML.matchAll(/data-owner="([^"]*)"/g)].map(m => m[1]);
+    check('фильтр по юзеру: все строки его', fo.length > 0 && fo.every(x => x === o), JSON.stringify(fo));
+    vm.runInContext(`S.uFilter = ''; render();`, ctx);
+    const all = (q('#tb').innerHTML.match(/data-id=/g) || []).length;
+    check('фильтр снят: все строки вернулись', all === jobs.length, String(all));
+  }
   check('нет битовой маски статусов', !/&[a-z];/.test(tb), (tb.match(/&[a-z];/g) || []).slice(0, 3).join());
   check('строки в порядке очереди (Свежие сверху)', (() => {
     const ids = [...tb.matchAll(/data-id="([^"]+)"/g)].map(m => m[1]);
@@ -138,11 +151,27 @@ const ARG = (f) => require('path').join(DIR, f);
     `${(segs.match(/class="seg"/g) || []).length} vs ${want}`);
   check('метка спикера', /class="tag"/.test(segs));
   check('таймкоды', /\d+\.\d\d–\d+\.\d\d с/.test(segs), segs.slice(0, 160));
+  // слова с таймкодами — обычный текстовый блок .wts, НЕ flex-класс .meta (регрессия: слова ломались по одному на строку)
+  check('слова — в блоке .wts, не в .meta', /class="wts"/.test(segs) && !segs.includes('class="meta" style=margin-top'), segs.slice(0, 120));
   check('чипы имён спикеров', q('#spk').innerHTML.includes('data-raw='));
+  check('слова с таймкодами — в блоке .wts, не в .meta (регрессия: слова ломались по одному на строку)',
+    /class="wts"/.test(segs) && !segs.includes('class="meta" style=margin-top'), segs.slice(0, 200));
   check('кнопка сохранения имён', q('#spk').innerHTML.includes('spksave') || q('#spk').innerHTML.includes('сохранить'));
   check('скачивание — селект + одна кнопка', q('#fmt').innerHTML.includes('<option') &&
         typeof q('#dl').onclick === 'function', q('#fmt').innerHTML.slice(0, 40));
   check('мёртвого /download?fmt= нигде нет', !q('#tb').innerHTML.includes('/download?fmt='));
+
+  // фильтр по пользователю (админ): S.uFilter сужает таблицу
+  {
+    const owners = [...new Set(jobs.map(j => j.owner || ''))];
+    check('задачи имеют owner (фикстура)', owners.length > 0, JSON.stringify(owners));
+    vm.runInContext(`S.uFilter = ${JSON.stringify(owners[0])}; render();`, ctx);
+    const fo = [...q('#tb').innerHTML.matchAll(/data-owner="([^"]*)"/g)].map(m => m[1]);
+    check('фильтр: все строки — только этого юзера', fo.length > 0 && fo.every(o => o === owners[0]), JSON.stringify(fo));
+    vm.runInContext(`S.uFilter = ''; render();`, ctx);
+    check('фильтр снят: все строки вернулись', (q('#tb').innerHTML.match(/data-id=/g) || []).length === jobs.length,
+      String((q('#tb').innerHTML.match(/data-id=/g) || []).length));
+  }
   check('форматов в списке >= 7 и есть srt', (q('#fmt').innerHTML.match(/<option/g) || []).length >= 7
     && q('#fmt').innerHTML.includes('value="srt"'), String((q('#fmt').innerHTML.match(/<option/g) || []).length));
 

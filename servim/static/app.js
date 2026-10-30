@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.2.2';   // синхронно с ?v= в index.html
+const UI_VER = '2.2.5';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -86,7 +86,7 @@ const LABEL = { plan: 'запланировано', queued: 'в очереди',
 const S = {
   picked: new Set(),          // отмеченные чекбоксами задачи
   jobs: [], health: {}, queue: { paused: false }, sel: null, pinned: null, hover: null, openId: null,
-  details: new Map(), timer: null, formats: EXPORT
+  details: new Map(), timer: null, formats: EXPORT, uFilter: ''   // фильтр по пользователю (админ)
 };
 
 /* ------------------------------------------------------------------- утилиты */
@@ -214,10 +214,25 @@ async function adminReload() {
   if (S.adSel && !S.adUsers.some(u => u.id === S.adSel)) S.adSel = null;
   $('#adtb').innerHTML = S.adUsers.map(u => `<tr data-uid="${esc(u.id)}"${u.id === S.adSel ? ' class="sel"' : ''}>
     <td>${esc(u.name)}${S.user && u.id === S.user.id ? ' <span class="you">это ты</span>' : ''}</td>
-    <td><span class="role ${u.role}">${u.role === 'admin' ? 'админ' : 'юзер'}</span></td>
+    <td><span class="role ${u.role}">${u.role === 'admin' ? 'админ' : 'пользователь'}</span></td>
     <td>${u.created ? new Date(u.created * 1000).toLocaleDateString() : ''}</td></tr>`).join('')
     || '<tr><td colspan="3" class="empty">пусто</td></tr>';
+  fillUFilter();
   adBar();
+}
+
+/* фильтр заданий по пользователю — выпадающий список в тулбаре, только для админа */
+function fillUFilter() {
+  const sel = $('#ufilt'); if (!sel) return;
+  const users = S.adUsers || [];
+  sel.innerHTML = '<option value="">все пользователи</option>' + users.map(u =>
+    `<option value="${esc(u.name)}"${u.name === S.uFilter ? ' selected' : ''}>${esc(u.name)}${S.user && u.id === S.user.id ? ' (это ты)' : ''}</option>`).join('');
+  if (S.uFilter && !users.some(u => u.name === S.uFilter)) { S.uFilter = ''; sel.value = ''; render(); }
+}
+
+async function loadUFilter() {
+  try { const d = await api(EP + 'admin/users'); S.adUsers = d.users || []; fillUFilter(); }
+  catch (e) { /* не админ или сеть — виджет скрыт */ }
 }
 
 function openAdd() {
@@ -349,11 +364,14 @@ async function detail(id) {
 function isLive(j) { return ['queued', 'running', 'loading'].includes(j.status); }
 function render() {
   const tb = $('#tb');
+  const list = S.uFilter ? S.jobs.filter(j => (j.owner || '') === S.uFilter) : S.jobs;
   if (!S.jobs.length) {
     tb.innerHTML = '<tr><td colspan="2" class="empty">пусто — нажми «Добавить» или перетащи файлы на таблицу</td></tr>';
     S.picked.clear();
+  } else if (!list.length) {
+    tb.innerHTML = '<tr><td colspan="2" class="empty">у этого пользователя задач нет</td></tr>';
   } else {
-    tb.innerHTML = S.jobs.map(j => {
+    tb.innerHTML = list.map(j => {
       const s = j.summary || {};
       const pct = j.status === 'done' ? 100 : (j.status === 'running' ? (j.progress || 0) : 0);
       const stat = j.status === 'done'
@@ -377,7 +395,7 @@ function render() {
         ? `<div class="dls">${dls.map(f => pill(f, 0)).join('')}</div>`
         : `<div class="dls"><span class="dl ph" data-tip="${j.status === 'error' ? 'ошибка обработки — запусти заново'
             : isLive(j) ? 'появится, когда закончится обработка' : 'запусти обработку — и здесь появятся файлы'}">…</span></div>`;
-      return `<tr data-id="${j.id}" tabindex="0" class="${j.status === 'running' ? 'running' : ''} ${S.sel === j.id ? 'sel' : ''} ${S.picked.has(j.id) ? 'pick' : ''}">
+      return `<tr data-id="${j.id}" data-owner="${esc(j.owner || '')}" tabindex="0" class="${j.status === 'running' ? 'running' : ''} ${S.sel === j.id ? 'sel' : ''} ${S.picked.has(j.id) ? 'pick' : ''}">
         <td class="c-st"><label class="ck" title="отметить"><input type="checkbox" data-ck="${j.id}" ${S.picked.has(j.id) ? 'checked' : ''} tabindex="-1" aria-label="отметить ${esc(j.name)}"></label>
           <span class="st ${j.status}" ${j.status === 'done' ? 'data-open="1"' : ''}
             title="${j.status === 'done' ? 'открыть результат' : (LABEL[j.status] || j.status)}">${ICON[j.status] || ICON.plan}</span></td>
@@ -396,8 +414,8 @@ function render() {
   const nd = $('#n_diarize');
   if (nd) { const k = S.jobs.filter(j => (j.summary || {}).speakers).length;
             nd.textContent = k ? k : ''; }
-  const n = S.jobs.length, run = S.jobs.filter(isLive).length;
-  const plan = S.jobs.filter(j => j.status === 'plan').length, ready = S.jobs.filter(j => j.status === 'done').length;
+  const n = list.length, run = list.filter(isLive).length;
+  const plan = list.filter(j => j.status === 'plan').length, ready = list.filter(j => j.status === 'done').length;
   $('#cnt').textContent = `${n} ${plural(n, 'задача', 'задачи', 'задач')}`;
   // «Старт» нужен, пока есть незапущенные задачи или очередь на паузе; «Стоп» — пока что-то
   // идёт или ждёт своей очереди.
@@ -475,7 +493,7 @@ async function show(id) {
     return `<div class="seg"><div>
         <span class="tag" style="background:${COL[k]};color:${FG[k]}">${esc(who(s.speaker))}</span>
         <div class="meta">${(s.start ?? 0).toFixed(2)}–${(s.end ?? 0).toFixed(2)} с</div></div>
-      <div><div class="tx">${esc((s.text || '').trim())}</div>${words ? `<div class="meta" style="margin-top:4px">${words}</div>` : ''}</div></div>`;
+      <div><div class="tx">${esc((s.text || '').trim())}</div>${words ? `<div class="wts">${words}</div>` : ''}</div></div>`;
   }).join('');
   _segs.scrollTop = _st;
 
@@ -621,6 +639,7 @@ function wire() {
   $('#selpall').onclick = () => { S.picked = new Set(S.jobs.map(j => j.id)); render(); };
   $('#selnone').onclick = () => { S.picked.clear(); render(); };
   $('#all').onchange = (e) => { S.picked = e.target.checked ? new Set(S.jobs.map(j => j.id)) : new Set(); render(); };
+  $('#ufilt').onchange = (e) => { S.uFilter = e.target.value; S.sel = null; render(); };
 
   $('#tb').addEventListener('change', (e) => {
     const c = e.target.closest('[data-ck]'); if (!c) return;
@@ -766,6 +785,7 @@ function wire() {
   if (!me || !me.user) { showLogin('login'); return; }
   applyServerSettings(me.settings);
   fillProfile(me.user);
+  if (me.user.role === 'admin') { $('#ufiltw').hidden = false; loadUFilter(); }
   restore();                    // флаги/модель могли приехать с сервера
   try {
     await Promise.all([loadModels(), loadQueue()]);

@@ -30,7 +30,7 @@ const qv = [...new Set([...html.matchAll(/\?v=([0-9.]+)/g)].map(m => m[1]))];
 ok(qv.length === 1 && qv[0] === ver, 'версия одна и та же: UI_VER=' + ver + ', index.html=' + qv.join('/'));
 
 /* 3. панель инструментов: действия + карандаш + пиктограммы-переключатели, без селектов */
-ok(!/<select/.test(tools), 'в панели инструментов нет выпадающих списков');
+ok(/<label id="ufiltw"[^>]*hidden/.test(tools), 'в тулбаре есть скрытый по умолчанию фильтр по пользователю (админ)');
 ['start', 'stop', 'edit'].forEach(id => ok(new RegExp('id="' + id + '"').test(tools), 'в панели есть кнопка #' + id));
 ok(tools.indexOf('id="stop"') < tools.indexOf('id="edit"') && tools.indexOf('id="edit"') < tools.indexOf('data-flag="diarize"'),
   'карандаш стоит между «стоп» и переключателями');
