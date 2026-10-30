@@ -209,7 +209,7 @@ def _user_settings(uid: str) -> dict:
         return {}
 
 
-app = FastAPI(title="WhisperX ASR", version="1.3.1",
+app = FastAPI(title="WhisperX ASR", version="1.3.2",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
 
 # FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
@@ -1046,9 +1046,12 @@ def list_jobs(request: Request, limit: int = 50, scope: str | None = None) -> di
         vis = sorted((j for j in _jobs.values() if all_scope or _can_access(j, u)),
                      key=lambda j: j.get("created") or 0, reverse=True)
     items = vis[:limit]
+    # позиция в общей очереди для статуса «в очереди · N-я» в интерфейсе (не храним, считаем на лету)
+    pos = {jid: i + 1 for i, jid in enumerate(_tasks)}
     return {"count": len(vis), "jobs": [{k: v for k, v in j.items()
                                           if k not in ("audio", "dir", "result", "trace")} | (
-        {"summary": _summary(j)} if j.get("status") == "done" else {}) for j in items]}
+        {"queue_pos": pos.get(j["id"]) or 0} if j.get("status") == "queued" else {}) |
+        ({"summary": _summary(j)} if j.get("status") == "done" else {}) for j in items]}
 
 
 def _summary(job: dict) -> dict:

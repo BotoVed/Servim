@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.2.9';   // синхронно с ?v= в index.html
+const UI_VER = '2.3.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -395,7 +395,7 @@ function render() {
         : j.status === 'running' ? `<span class="st-tx">${Math.round(j.progress || 0)}% · ${esc(j.stage || '')}</span>`
         : j.status === 'error' ? `<span class="st-tx bad">${esc(String(j.error || 'ошибка').slice(0, 80))}</span>`
         : j.status === 'plan' ? (S.queue.paused ? '<span class="st-tx">пауза — нажми «Старт»</span>' : '<span class="st-tx">ждёт очереди</span>')
-        : j.status === 'queued' ? '<span class="st-tx">в очереди</span>' : '';
+        : j.status === 'queued' ? `<span class="st-tx">${j.queue_pos === 1 ? 'следующая' : j.queue_pos ? `в очереди · ${j.queue_pos}-я` : 'в очереди'}</span>` : '';
       // предупреждение о результате (файл пропал, 0 сегментов и т.п.) — отдельной строкой под метой
       // скачивание — пилюлями под именем файла; пока результата нет — плейсхолдер тем же стилем
       const F = fmts();
