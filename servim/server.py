@@ -209,7 +209,7 @@ def _user_settings(uid: str) -> dict:
         return {}
 
 
-app = FastAPI(title="WhisperX ASR", version="1.3.0",
+app = FastAPI(title="WhisperX ASR", version="1.3.1",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
 
 # FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
@@ -980,9 +980,12 @@ def queue_start(request: Request, selected: str | None = None) -> dict:
             _jobs[jid]["status"] = "queued"
             _jobs[jid].pop("cancel", None)
     # Пересобираем очередь целиком: только что отмеченные — в начало, остальные — за ними.
+    # ВАЖНО: чужие queued-задачи НЕ выбрасываем (фильтр доступа — только для видимости UI):
+    # иначе каждый «Старт» обычного пользователя выкидывал чужие файлы из очереди навсегда
+    # (проверено на двух юзерах: последний стартовавший сбрасывал всех остальных).
     global _tasks
     with _jobs_lock:
-        _tasks = ids + [i for i in _tasks if i not in ids and _jobs.get(i) and _can_access(_jobs[i], u)]
+        _tasks = ids + [i for i in _tasks if i not in ids and _jobs.get(i)]
     _task_evt.set()
     if not ids:  # диагностика для интерфейса: «Старт» на пустой очереди выглядит поломкой
         left = [{"id": j["id"], "status": j.get("status"), "error": (j.get("error") or "")[:80]}
