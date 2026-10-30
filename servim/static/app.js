@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.2.5';   // синхронно с ?v= в index.html
+const UI_VER = '2.2.6';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -486,14 +486,12 @@ async function show(id) {
     location.href = dlUrl(id, $('#fmt') ? $('#fmt').value : 'srt');
   };
   const _segs = $('#segs'), _st = _segs.scrollTop;   // позиция скролла переживает перерисовку
-  _segs.innerHTML = r.segments.map(s => {
+  _segs.innerHTML = r.segments.map(s => {   // слова с таймкодами в модалке НЕ показываем — дублируют текст; они есть в json/srt
     const k = Math.max(0, Object.keys(raw2).indexOf(s.speaker)) % COL.length;
-    const words = (s.words || []).slice(0, 400)
-      .map(w => `<b title="${w.start?.toFixed?.(2) ?? ''}–${w.end?.toFixed?.(2) ?? ''}">${esc(w.word)}</b>`).join(' ');
     return `<div class="seg"><div>
         <span class="tag" style="background:${COL[k]};color:${FG[k]}">${esc(who(s.speaker))}</span>
         <div class="meta">${(s.start ?? 0).toFixed(2)}–${(s.end ?? 0).toFixed(2)} с</div></div>
-      <div><div class="tx">${esc((s.text || '').trim())}</div>${words ? `<div class="wts">${words}</div>` : ''}</div></div>`;
+      <div><div class="tx">${esc((s.text || '').trim())}</div></div></div>`;
   }).join('');
   _segs.scrollTop = _st;
 

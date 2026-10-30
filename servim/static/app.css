@@ -183,10 +183,6 @@ tr:hover td.c-st .ck input,tr.sel td.c-st .ck input{border-color:var(--acc)}
 .tag{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:var(--r2);
   margin-bottom:3px;letter-spacing:.5px}
 .tx{font-size:13.5px;overflow-wrap:anywhere}
-/* слова с таймкодами в модалке результата: обычный текст, НЕ flex-ряд (был баг с классом .meta) */
-.wts{margin-top:4px;font-size:11px;line-height:1.55;color:var(--mut);overflow-wrap:anywhere}
-.wts b{font-weight:500;color:var(--mut)}
-.wts b:hover{color:var(--acc)}
 .empty{color:var(--mut);font-size:13px;padding:30px 16px;text-align:center}
 .close{margin-left:auto;background:transparent;border:1px solid var(--line2);color:var(--mut);
   border-radius:var(--r2);padding:3px 9px;font:11px inherit;font-family:inherit;cursor:pointer}
