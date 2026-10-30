@@ -359,19 +359,15 @@ h2{display:none}
 .adt th{text-align:left;font:600 10.5px/1 inherit;letter-spacing:.07em;text-transform:uppercase;
   color:var(--mut);padding:7px 8px;border-bottom:1px solid var(--line2)}
 .adt td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:middle}
-.adt td.acts{white-space:nowrap;text-align:right}
-.adt td.acts .tbtn{margin-left:4px}
+.adt tr[data-uid]{cursor:pointer}
 .adt .you{color:var(--mut);font-size:11px}
 .role{display:inline-block;padding:3px 9px;border-radius:999px;font:600 11px/1 inherit}
 .role.admin{background:rgba(34,224,208,.14);color:#5eead4}
 .role.user{background:rgba(255,255,255,.07);color:var(--mut)}
-.addrow{display:flex;gap:6px;margin:10px 0 16px;flex-wrap:wrap}
-.addrow input{flex:1 1 140px;min-width:0;background:#071110;color:var(--fg);border:1px solid var(--line2);
-  border-radius:var(--r2);padding:8px 9px;font:inherit;font-size:12.5px}
-.addrow select{background:#071110;color:var(--fg);border:1px solid var(--line2);border-radius:var(--r2);
-  padding:8px 9px;font:inherit;font-size:12.5px}
-.pwedit{flex:1 1 90px;min-width:0;background:#071110;color:var(--fg);border:1px solid var(--line2);
-  border-radius:var(--r2);padding:6px 8px;font:inherit;font-size:12.5px;width:90px}
+.adbar{display:flex;gap:8px;margin:0 0 10px}
+.adbar .tbtn{flex:none}
+.keyval{width:100%;box-sizing:border-box;background:#071110;color:var(--fg);border:1px solid var(--line2);
+  border-radius:var(--r2);padding:8px 9px;font:inherit;font-size:12px;user-select:all;text-align:center}
 .profwho{margin:0 0 6px}
 #prof .fld>input{color:var(--mut)}
 @media (max-width:780px){

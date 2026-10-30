@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=2.0.1">
+<link rel="stylesheet" href="./app.css?v=2.1.0">
 </head>
 <body>
 <header>
@@ -108,7 +108,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=2.0.1" defer></script>
+<script src="./app.js?v=2.1.0" defer></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">
@@ -140,20 +140,48 @@
   <div class="mask" id="adminmask" hidden>
     <div class="adm" role="dialog" aria-modal="true" aria-labelledby="adt">
       <h3 id="adt">Пользователи <button class="close" id="adclose">закрыть</button></h3>
-      <div class="adtw" id="adtw">
-        <table class="adt"><thead><tr><th>Имя</th><th>Роль</th><th>Создан</th><th></th></tr></thead>
-          <tbody id="adtb"><tr><td colspan="4">загрузка…</td></tr></tbody></table>
+      <div class="adbar">
+        <button class="tbtn pri" id="adadd" data-tip="Добавить пользователя"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+        <button class="tbtn" id="adkey" disabled data-tip="Показать API-ключ выбранного"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="16" r="3.5"/><path d="M10.6 13.4L20 4M17.5 6.5L20 9M14.5 9l2 2"/></svg></button>
+        <button class="tbtn" id="adpw" disabled data-tip="Задать новый пароль"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></button>
+        <button class="tbtn danger" id="addel" disabled data-tip="Удалить пользователя и его настройки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
       </div>
-      <div class="addrow">
-        <input id="adname" placeholder="имя (латиница, цифры, . _ -)" spellcheck="false">
-        <input id="adpass" type="password" placeholder="пароль (от 4)">
-        <select id="adrole"><option value="user">пользователь</option><option value="admin">админ</option></select>
-        <button class="tbtn pri" id="adadd">добавить</button>
+      <div class="adtw" id="adtw">
+        <table class="adt"><thead><tr><th>Имя</th><th>Роль</th><th>Создан</th></tr></thead>
+          <tbody id="adtb"><tr><td colspan="3">загрузка…</td></tr></tbody></table>
       </div>
       <h3>Система</h3>
       <label class="fld"><span>Адрес сервера (подсказка на экране входа)</span><input id="s_url" type="text" placeholder="http://192.168.10.149:8090/" spellcheck="false"></label>
       <label class="fld"><span>Порт (применится после перезапуска сервиса)</span><input id="s_port" inputmode="numeric" placeholder="8090"></label>
       <div class="actx"><button class="tbtn pri" id="s_save">сохранить</button></div>
+    </div>
+  </div>
+  <!-- ============================ админ: добавить пользователя -->
+  <div class="mask" id="addmask" hidden>
+    <div class="ask" role="dialog" aria-modal="true" aria-labelledby="admt">
+      <h4 id="admt">Новый пользователь</h4>
+      <label class="fld"><span>Имя (латиница, цифры, . _ -)</span><input id="adname" spellcheck="false" autocomplete="off"></label>
+      <label class="fld"><span>Пароль (от 4)</span><input id="adpass" type="password" autocomplete="new-password"></label>
+      <label class="fld"><span>Роль</span><select id="adrole"><option value="user">пользователь</option><option value="admin">админ</option></select></label>
+      <p class="errx" id="aderr"></p>
+      <div class="acts"><button class="g" id="adcancel">Отмена</button><button class="g pri" id="adok">Создать</button></div>
+    </div>
+  </div>
+  <!-- ============================ админ: новый пароль -->
+  <div class="mask" id="pwmask" hidden>
+    <div class="ask" role="dialog" aria-modal="true" aria-labelledby="pwt">
+      <h4 id="pwt">Новый пароль</h4><p id="pwx"></p>
+      <label class="fld"><span>Пароль (от 4)</span><input id="pwpw" type="password" autocomplete="new-password"></label>
+      <p class="errx" id="pwerr"></p>
+      <div class="acts"><button class="g" id="pwcancel">Отмена</button><button class="g pri" id="pwok">Задать</button></div>
+    </div>
+  </div>
+  <!-- ============================ админ: API-ключ -->
+  <div class="mask" id="keymask" hidden>
+    <div class="ask" role="dialog" aria-modal="true" aria-labelledby="keyt">
+      <h4 id="keyt">API-ключ</h4><p id="keyx"></p>
+      <input id="keyval" class="keyval" readonly>
+      <div class="acts"><button class="g" id="keycopy">Скопировать</button><button class="g" id="keyclose">Закрыть</button></div>
     </div>
   </div>
 </body>

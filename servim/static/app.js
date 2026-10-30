@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.0.1';   // синхронно с ?v= в index.html
+const UI_VER = '2.1.0';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -197,56 +197,91 @@ async function adminOpen() {
   } catch (e) { /* не админ — поля останутся пустыми */ }
 }
 
+S.adSel = null;                     // выделенный пользователь в панели «Пользователи»
+
+function adSelRow() { return (S.adUsers || []).find(u => u.id === S.adSel) || null; }
+
+function adBar() {                  // пиктограммы-кнопки активны только при выделенной строке
+  const u = adSelRow(), self = u && u.id === (S.user || {}).id;
+  const del = $('#addel');
+  if (del) { del.disabled = !u || !!self; del.dataset.tip = self ? 'Себя не удалить' : 'Удалить пользователя и его настройки'; }
+  const k = $('#adkey'); if (k) k.disabled = !u;
+  const p = $('#adpw'); if (p) p.disabled = !u;
+}
+
 async function adminReload() {
   const d = await api(EP + 'admin/users');
   S.adUsers = d.users || [];
-  const tb = $('#adtb');
-  tb.innerHTML = S.adUsers.map(u => `<tr data-uid="${esc(u.id)}">
+  if (S.adSel && !S.adUsers.some(u => u.id === S.adSel)) S.adSel = null;
+  $('#adtb').innerHTML = S.adUsers.map(u => `<tr data-uid="${esc(u.id)}"${u.id === S.adSel ? ' class="sel"' : ''}>
     <td>${esc(u.name)}${S.user && u.id === S.user.id ? ' <span class="you">это ты</span>' : ''}</td>
     <td><span class="role ${u.role}">${u.role === 'admin' ? 'админ' : 'юзер'}</span></td>
-    <td>${u.created ? new Date(u.created * 1000).toLocaleDateString() : ''}</td>
-    <td class="acts"><button class="tbtn" data-act="key" data-tip="показать API-ключ">ключ</button>
-      <button class="tbtn" data-act="pw" data-tip="задать новый пароль">пароль</button>
-      <button class="tbtn danger" data-act="del" data-tip="удалить пользователя и его настройки">✕</button></td></tr>`).join('')
-    || '<tr><td colspan="4" class="empty">пусто</td></tr>';
+    <td>${u.created ? new Date(u.created * 1000).toLocaleDateString() : ''}</td></tr>`).join('')
+    || '<tr><td colspan="3" class="empty">пусто</td></tr>';
+  adBar();
 }
 
-async function adminAct(e) {
-  const b = e.target.closest('[data-act]'); if (!b) return;
-  const tr = b.closest('tr'), uid = tr && tr.dataset.uid;
-  const act = b.dataset.act;
-  try {
-    if (act === 'key') {
-      const u = S.adUsers.find(x => x.id === uid);
-      const k = (u && u.key) || '';
-      if (navigator.clipboard) navigator.clipboard.writeText(k).then(() => toast('API-ключ скопирован')).catch(() => toast(k));
-      else toast(k);
-    } else if (act === 'pw') {
-      b.closest('td').innerHTML = '<input class="pwedit" type="password" placeholder="новый пароль (от 4)">'
-        + '<button class="tbtn pri" data-act="pwsave">ок</button><button class="tbtn" data-act="pwcancel">✕</button>';
-      const inp = tr.querySelector('.pwedit'); if (inp) inp.focus();
-    } else if (act === 'pwsave') {
-      const v = (tr.querySelector('.pwedit') || {}).value || '';
-      await api(EP + 'admin/users/' + encodeURIComponent(uid), { method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: v }) });
-      toast('пароль задан'); await adminReload();
-    } else if (act === 'pwcancel') {
-      await adminReload();
-    } else if (act === 'del') {
-      if (!await ask(`Пользователь «${uid}» будет удалён вместе со своими настройками и ключом.`, 'Удалить')) return;
-      await api(EP + 'admin/users/' + encodeURIComponent(uid), { method: 'DELETE' });
-      toast('пользователь удалён'); await adminReload();
-    }
-  } catch (er) { toast('не вышло: ' + er.message); }
+function openAdd() {
+  const m = $('#addmask'); if (!m) return;
+  m.hidden = false;
+  $('#adname').value = ''; $('#adpass').value = ''; $('#adrole').value = 'user';
+  $('#aderr').textContent = '';
+  $('#adname').focus();
 }
 
 async function adminAdd() {
-  const body = { name: $('#adname').value.trim(), password: $('#adpass').value, role: $('#adrole').value };
+  const name = $('#adname').value.trim(), pw = $('#adpass').value, err = $('#aderr');
+  err.textContent = '';
+  if (!name) { err.textContent = 'введи имя'; return; }
+  if (pw.length < 4) { err.textContent = 'пароль — минимум 4 символа'; return; }
   try {
     await api(EP + 'admin/users', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body) });
-    $('#adname').value = ''; $('#adpass').value = '';
+      body: JSON.stringify({ name, password: pw, role: $('#adrole').value }) });
+    $('#addmask').hidden = true;
     toast('пользователь добавлен'); await adminReload();
+  } catch (e) { err.textContent = e.message; }
+}
+
+function openPw() {
+  const u = adSelRow(); if (!u) return;
+  $('#pwx').textContent = `пользователь: ${u.name}`;
+  $('#pwpw').value = ''; $('#pwerr').textContent = '';
+  $('#pwmask').hidden = false; $('#pwpw').focus();
+}
+
+async function pwSave() {
+  const u = adSelRow(); if (!u) return;
+  const v = $('#pwpw').value;
+  if (v.length < 4) { $('#pwerr').textContent = 'пароль — минимум 4 символа'; return; }
+  try {
+    await api(EP + 'admin/users/' + encodeURIComponent(u.id), { method: 'POST',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: v }) });
+    $('#pwmask').hidden = true;
+    toast('пароль задан: ' + u.name); await adminReload();
+  } catch (e) { $('#pwerr').textContent = e.message; }
+}
+
+function openKey() {
+  const u = adSelRow(); if (!u) return;
+  $('#keyx').textContent = `ключ пользователя ${u.name} · клиенты: Authorization: Bearer <ключ>`;
+  $('#keyval').value = u.key || '';
+  $('#keymask').hidden = false;
+  const inp = $('#keyval'); if (inp) inp.select();
+}
+
+async function keyCopy() {
+  const v = $('#keyval').value;
+  try { await navigator.clipboard.writeText(v); toast('API-ключ скопирован'); }
+  catch (e) { toast(v); }
+}
+
+async function adminDel() {
+  const u = adSelRow(); if (!u) return;
+  if (u.id === (S.user || {}).id) { toast('себя не удалить'); return; }
+  if (!await ask(`Пользователь «${u.name}» будет удалён вместе со своими настройками и ключом.`, 'Удалить')) return;
+  try {
+    await api(EP + 'admin/users/' + encodeURIComponent(u.id), { method: 'DELETE' });
+    S.adSel = null; toast('пользователь удалён'); await adminReload();
   } catch (e) { toast('не вышло: ' + e.message); }
 }
 
@@ -399,8 +434,9 @@ function ask(text, yes = 'Удалить') {
     const m = $('#askmask'), b = $('#askyes'), n = $('#askno');
     $('#askx').textContent = text;
     $('#askt').textContent = yes === 'Удалить' ? 'Удалить?' : yes;
+    m.style.zIndex = 90;                          // поверх любых открытых масок (напр. панели админа)
     m.hidden = false;
-    const close = (v) => { m.hidden = true; b.onclick = n.onclick = null; resolve(v); };
+    const close = (v) => { m.hidden = true; m.style.zIndex = ''; b.onclick = n.onclick = null; resolve(v); };
     b.onclick = () => close(true); n.onclick = () => close(false);
   });
 }
@@ -625,6 +661,10 @@ function wire() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Delete' && S.sel && !/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) del(S.sel);
     if (e.key === 'Escape') {
+      for (const id of ['addmask', 'pwmask', 'keymask']) {
+        const m = $('#' + id);
+        if (m && !m.hidden) { m.hidden = true; return; }
+      }
       const adm = $('#adminmask');
       if (adm && !adm.hidden) { adm.hidden = true; return; }
       if (!$('#askmask').hidden) return; S.openId = null; hideRes();
@@ -670,12 +710,26 @@ function wire() {
     if (who) who.onclick = () => openCfg();
     const ub = $('#users');
     if (ub) ub.onclick = () => adminOpen().catch(e => toast('не вышло: ' + e.message));
-    const ad = $('#adtb');
-    if (ad) ad.addEventListener('click', (e) => adminAct(e).catch(() => {}));
-    const aa = $('#adadd');
-    if (aa) { aa.onclick = () => adminAdd();
-      ['adname', 'adpass'].forEach(id => $('#' + id).addEventListener('keydown',
-        (e) => { if (e.key === 'Enter') adminAdd(); })); }
+    $('#adtb').addEventListener('click', (e) => {
+      const tr = e.target.closest('tr[data-uid]'); if (!tr) return;
+      S.adSel = tr.dataset.uid === S.adSel ? null : tr.dataset.uid;      // повторный клик — снять выделение
+      $$('#adtb tr').forEach(r => r.classList.toggle('sel', r.dataset.uid === S.adSel));
+      adBar();
+    });
+    const aa = $('#adadd'); if (aa) aa.onclick = () => openAdd();
+    const ak = $('#adkey'); if (ak) ak.onclick = () => openKey();
+    const ap = $('#adpw'); if (ap) ap.onclick = () => openPw();
+    const ax = $('#addel'); if (ax) ax.onclick = () => adminDel();
+    const ao = $('#adok'); if (ao) ao.onclick = () => adminAdd();
+    const ac_ = $('#adcancel'); if (ac_) ac_.onclick = () => { $('#addmask').hidden = true; };
+    ['adname', 'adpass'].forEach(id => { const el = $('#' + id);
+      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') adminAdd(); }); });
+    const pwo = $('#pwok'); if (pwo) pwo.onclick = () => pwSave();
+    const pwc = $('#pwcancel'); if (pwc) pwc.onclick = () => { $('#pwmask').hidden = true; };
+    const pwpw = $('#pwpw');
+    if (pwpw) pwpw.addEventListener('keydown', (e) => { if (e.key === 'Enter') pwSave(); });
+    const kcp = $('#keycopy'); if (kcp) kcp.onclick = () => keyCopy();
+    const kcl = $('#keyclose'); if (kcl) kcl.onclick = () => { $('#keymask').hidden = true; };
     const sc = $('#adclose');
     if (sc) sc.onclick = () => { $('#adminmask').hidden = true; };
     const ss = $('#s_save');
