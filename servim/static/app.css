@@ -225,10 +225,12 @@ kbd{background:#121b1d;border:1px solid var(--line2);border-radius:4px;padding:0
     overflow-x:auto;scrollbar-width:none}
   .mob-sel::-webkit-scrollbar{display:none}
   .mob-sel select{flex:1 0 auto;font-size:12px;padding:6px 8px}
-  /* мобильная карточная раскладка — ТОЛЬКО таблица заданий; остальные таблицы (админка и пр.) остаются столбцами */
-  #tb, #tb tbody, #tb tr, #tb td{display:block;width:auto}
-  #tb thead{display:none}
-  #tb{table-layout:auto}
+  /* мобильная карточная раскладка — ТОЛЬКО таблица заданий (.jtbl); остальные таблицы (админка и пр.) остаются столбцами.
+     id="tb" стоит на <tbody>, поэтому саму <table> берём по классу: иначе таблица остаётся display:table
+     и схлопывается по ширине первой колонки (строка сжимается до ~60px), а #tb thead вообще не матчится */
+  .jtbl{display:block;width:100%;table-layout:auto}
+  .jtbl thead{display:none}
+  #tb, #tb tr, #tb td{display:block;width:auto}
   #tb tbody tr{padding:11px 12px 11px 44px;border-bottom:1px solid #141c1e}
   #tb td{border:0;padding:0}
   #tb td.c-st{position:absolute;left:12px;top:12px;width:auto;display:flex}
@@ -423,8 +425,35 @@ html,body{height:100%}
 .sheet .fld{display:flex;flex-direction:column;gap:5px;margin:0 0 9px}
 .sheet .fld>span{font-size:10.5px;letter-spacing:.7px;text-transform:uppercase;color:var(--mut2)}
 .sheet select,.sheet input{width:100%}
+/* очередь загрузки: модалка «Загрузки» — прогресс каждого файла + «убрать» */
+.uplbox{width:min(560px,100%);max-height:min(80vh,700px);display:flex;flex-direction:column;
+  background:#080e10;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+  box-shadow:0 26px 70px rgba(0,0,0,.6)}
+.uplbox>h3{margin:0;padding:11px 16px 9px;font-size:12px;font-weight:640;color:#cfe0db;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.uplbox .close{margin-left:auto}
+.upllist{flex:1 1 auto;overflow-y:auto;padding:6px 16px 14px}
+.upli{padding:9px 0;border-bottom:1px solid #121a1c}
+.upli:last-child{border:0}
+.upli.bad .uplst{color:var(--err)}
+.upli.ok .uplst{color:var(--acc2)}
+.upln{font-size:13px;color:#d7e6e2;display:flex;gap:8px;align-items:baseline;overflow:hidden}
+.upln em{font-style:normal;font-size:11px;color:var(--mut);white-space:nowrap}
+.uplbar{position:relative;height:6px;margin:7px 0 6px;background:#122022;border-radius:99px;overflow:hidden}
+.uplbar>i{position:absolute;inset:0 auto 0 0;width:var(--p,0%);background:linear-gradient(90deg,var(--acc),rgba(94,234,212,.7));transition:width .25s linear}
+.uplmeta{display:flex;gap:10px;align-items:center}
+.uplst{font-size:11.5px;color:var(--mut);flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.uplx{font-size:11.5px;color:var(--err);background:none;border:0;padding:2px 4px;cursor:pointer}
+.uplx:hover{color:#ff9db1}
+/* спиннер долгих операций */
+.spinmask{z-index:90}                          /* выше .mask(80): поверх всех модалок */
+.spinbox{display:flex;flex-direction:column;align-items:center;gap:10px;color:#cfe0db;font-size:13px}
+.spin{width:26px;height:26px;border:2.5px solid #24383e;border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite}
+.segload{display:flex;align-items:center;justify-content:center;gap:10px;padding:44px 0;color:var(--mut);font-size:13px}
+.segload .spin{width:20px;height:20px}
+@keyframes spin{to{transform:rotate(1turn)}}
 @media (max-width:780px){
   .rowmeta{flex-wrap:wrap}
   .meta{margin-left:auto;flex-wrap:wrap}
   .wrap{min-height:calc(100vh - 20px)}
+  .uplbox{border-radius:0;max-height:100vh;height:100%}
 }

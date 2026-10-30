@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=2.2.6">
+<link rel="stylesheet" href="./app.css?v=2.2.9">
 </head>
 <body>
 <header>
@@ -44,6 +44,7 @@
     <!-- ================================ панель инструментов -->
     <div class="tools">
       <button class="tbtn lbl" id="add" data-tip="Выбрать файлы (или перетащить их на таблицу)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg><span class="tl">файлы</span></button>
+      <button class="tbtn lbl" id="uplb" hidden data-tip="Очередь загрузки — прогресс и отмену отдельных файлов"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 21h14"/></svg><span class="tl">загрузки</span></button>
       <input type="file" id="f" multiple hidden accept="audio/*,video/*,.wav,.mp3,.ogg,.m4a,.flac,.aac,.opus,.mp4,.mkv,.webm,.mov">
 
       <button class="tbtn start lbl" id="start" disabled data-tip="Запустить обработку очереди"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg><span class="tl">старт</span></button>
@@ -70,7 +71,7 @@
 
     <!-- ==================================================== таблица -->
     <div class="tw" id="tw">
-      <table>
+      <table class="jtbl">
         <thead><tr>
           <th class="c-st"><label class="ck" data-tip="выделить все"><input type="checkbox" id="all" aria-label="выделить все"></label></th>
           <th class="c-file">Файл</th>
@@ -95,6 +96,18 @@
       </div>
     </div>
 
+    <div class="mask" id="umask" hidden>
+      <div class="uplbox" role="dialog" aria-modal="true" aria-labelledby="ult">
+        <h3><span id="ult">Загрузки</span> <span class="ver" id="ulm"></span>
+          <button class="close" id="ulclose">закрыть</button></h3>
+        <div class="upllist" id="upllist"></div>
+      </div>
+    </div>
+
+    <div class="mask spinmask" id="spinmask" hidden>
+      <div class="spinbox" role="alert"><div class="spin"></div><span id="spintx">работаю…</span></div>
+    </div>
+
     <div class="tip">
       <b class="count here" id="cnt"></b>
       <span>перетащи файл на таблицу</span>
@@ -105,7 +118,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=2.2.6" defer></script>
+<script src="./app.js?v=2.2.9" defer></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">

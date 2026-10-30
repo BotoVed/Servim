@@ -81,8 +81,9 @@ vm.createContext(ctx);
 const A = process.argv[2];
 const DIR = A && !A.endsWith('.js') ? A : '/tmp/servim/servim/static';
 const ARG = (f) => require('path').join(DIR, f);
+const js = fs.readFileSync(ARG('app.js'), 'utf8');   // исходник — для строковых проверок разметки
 (async () => {
-  vm.runInContext(fs.readFileSync(ARG('app.js'), 'utf8'), ctx, { filename: 'app.js' });
+  vm.runInContext(js, ctx, { filename: 'app.js' });
   await new Promise(r => setTimeout(r, 120));
 
   const S2 = (expr) => vm.runInContext(expr, ctx);
@@ -123,6 +124,38 @@ const ARG = (f) => require('path').join(DIR, f);
     check('фильтр снят: все строки вернулись', all === jobs.length, String(all));
   }
   check('нет битовой маски статусов', !/&[a-z];/.test(tb), (tb.match(/&[a-z];/g) || []).slice(0, 3).join());
+
+  // очередь загрузки: индикатор в тулбаре + модалка с прогрессом и «убрать»
+  {
+    vm.runInContext('renderUpl()', ctx);
+    check('кнопка «загрузки» скрыта при пустой очереди, в модалке — «очередь пуста»',
+      q('#uplb').hidden === true && q('#upllist').innerHTML.includes('очередь пуста'));
+    vm.runInContext(`S.upl.push({ name: 'тест.wav', size: 123456, pct: 42, status: 'loading', err: '', x: null, p: Promise.resolve() }); renderUpl();`, ctx);
+    const ul = q('#upllist').innerHTML;
+    check('кнопка видна, счётчик активных — 1', q('#uplb').hidden === false && q('#uplb .tl').textContent.includes('· 1'), q('#uplb .tl').textContent);
+    check('в модалке: файл с прогрессом 42% и статусом «загрузка 42%»',
+      /--p:42%/.test(ul) && ul.includes('загрузка 42%'), ul.slice(0, 160));
+    check('размер файла виден (КБ/МБ)', /\d+(\.\d+)? (КБ|МБ|Б|ГБ)/.test(ul));
+    check('крестик «убрать» есть у строки', ul.includes('class="uplx"'));
+    vm.runInContext(`S.upl[0].status = 'done'; renderUpl();`, ctx);
+    check('готово — статус меняется, счётчик сбрасывается',
+      q('#upllist').innerHTML.includes('готово') && q('#uplb .tl').textContent === 'загрузки',
+      q('#uplb .tl').textContent);
+    vm.runInContext(`S.upl.push({ name: 'брак.wav', size: 10, pct: 0, status: 'error', err: 'сеть', x: null, p: Promise.resolve() }); renderUpl();`, ctx);
+    check('ошибка загрузки видна', q('#upllist').innerHTML.includes('upli bad') && q('#upllist').innerHTML.includes('ошибка: сеть'));
+    vm.runInContext('uplOpen(false); S.upl = []; renderUpl();', ctx);
+    check('очередь пуста: кнопка скрыта', q('#uplb').hidden === true);
+  }
+
+  // спиннер долгих операций
+  {
+    vm.runInContext(`busy(true, 'тест…')`, ctx);
+    check('спиннер включается с текстом', q('#spinmask').hidden === false && q('#spintx').textContent === 'тест…');
+    vm.runInContext('busy(false)', ctx);
+    check('спиннер выключается', q('#spinmask').hidden === true);
+    check('в show() спиннер рисуется в модалке до загрузки',
+      js.includes('segload') && js.includes('загружаю результат…'));
+  }
   check('строки в порядке очереди (Свежие сверху)', (() => {
     const ids = [...tb.matchAll(/data-id="([^"]+)"/g)].map(m => m[1]);
     const rank = { running: 0, queued: 1, plan: 2, done: 3, error: 3, cancelled: 3 };
@@ -151,27 +184,13 @@ const ARG = (f) => require('path').join(DIR, f);
     `${(segs.match(/class="seg"/g) || []).length} vs ${want}`);
   check('метка спикера', /class="tag"/.test(segs));
   check('таймкоды', /\d+\.\d\d–\d+\.\d\d с/.test(segs), segs.slice(0, 160));
-  // слова с таймкодами — обычный текстовый блок .wts, НЕ flex-класс .meta (регрессия: слова ломались по одному на строку)
-  check('слова — в блоке .wts, не в .meta', /class="wts"/.test(segs) && !segs.includes('class="meta" style=margin-top'), segs.slice(0, 120));
+  // блока по словам в модалке нет (v2.2.6: дублировал текст); слова остаются в json/srt
+  check('блока по словам в модалке нет', !segs.includes('class="wts"') && !/\bwords\b/.test(segs), segs.slice(0, 160));
   check('чипы имён спикеров', q('#spk').innerHTML.includes('data-raw='));
-  check('слова с таймкодами — в блоке .wts, не в .meta (регрессия: слова ломались по одному на строку)',
-    /class="wts"/.test(segs) && !segs.includes('class="meta" style=margin-top'), segs.slice(0, 200));
   check('кнопка сохранения имён', q('#spk').innerHTML.includes('spksave') || q('#spk').innerHTML.includes('сохранить'));
   check('скачивание — селект + одна кнопка', q('#fmt').innerHTML.includes('<option') &&
         typeof q('#dl').onclick === 'function', q('#fmt').innerHTML.slice(0, 40));
   check('мёртвого /download?fmt= нигде нет', !q('#tb').innerHTML.includes('/download?fmt='));
-
-  // фильтр по пользователю (админ): S.uFilter сужает таблицу
-  {
-    const owners = [...new Set(jobs.map(j => j.owner || ''))];
-    check('задачи имеют owner (фикстура)', owners.length > 0, JSON.stringify(owners));
-    vm.runInContext(`S.uFilter = ${JSON.stringify(owners[0])}; render();`, ctx);
-    const fo = [...q('#tb').innerHTML.matchAll(/data-owner="([^"]*)"/g)].map(m => m[1]);
-    check('фильтр: все строки — только этого юзера', fo.length > 0 && fo.every(o => o === owners[0]), JSON.stringify(fo));
-    vm.runInContext(`S.uFilter = ''; render();`, ctx);
-    check('фильтр снят: все строки вернулись', (q('#tb').innerHTML.match(/data-id=/g) || []).length === jobs.length,
-      String((q('#tb').innerHTML.match(/data-id=/g) || []).length));
-  }
   check('форматов в списке >= 7 и есть srt', (q('#fmt').innerHTML.match(/<option/g) || []).length >= 7
     && q('#fmt').innerHTML.includes('value="srt"'), String((q('#fmt').innerHTML.match(/<option/g) || []).length));
 

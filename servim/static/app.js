@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.2.6';   // синхронно с ?v= в index.html
+const UI_VER = '2.2.9';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -86,8 +86,22 @@ const LABEL = { plan: 'запланировано', queued: 'в очереди',
 const S = {
   picked: new Set(),          // отмеченные чекбоксами задачи
   jobs: [], health: {}, queue: { paused: false }, sel: null, pinned: null, hover: null, openId: null,
-  details: new Map(), timer: null, formats: EXPORT, uFilter: ''   // фильтр по пользователю (админ)
+  details: new Map(), timer: null, formats: EXPORT, uFilter: '',   // фильтр по пользователю (админ)
+  upl: []                     // очередь загрузки: {name,size,pct,status,err,x,p}
 };
+
+/* спиннер долгих операций: полный экран, показывается только если операция >350 мс */
+let busyCnt = 0;
+function busy(on, text) {
+  busyCnt = Math.max(0, busyCnt + (on ? 1 : -1));
+  if (on) { $('#spintx').textContent = text || 'работаю…'; $('#spinmask').hidden = false; }
+  else if (!busyCnt) $('#spinmask').hidden = true;
+}
+async function withBusy(text, fn) {
+  let shown = false;
+  const t = setTimeout(() => { shown = true; busy(true, text); }, 350);   // быстрые операции — без мигания
+  try { return await fn(); } finally { clearTimeout(t); if (shown) busy(false); }
+}
 
 /* ------------------------------------------------------------------- утилиты */
 async function api(path, opt) {
@@ -318,6 +332,8 @@ function fmtDur(d) {
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
 }
 /* имя файла: не больше 50 знаков целиком, расширение (уже проверенное) — целиком и без обрезки */
+function fmtSize(n) { const u = n < 1024 ? ['Б', 1] : n < 1048576 ? ['КБ', 1024] : n < 1073741824 ? ['МБ', 1048576] : ['ГБ', 1073741824];
+  return `${Math.round(n / u[1] * 10) / 10} ${u[0]}`; }
 function shortName(name, max = 50) {
   const dot = name.lastIndexOf('.');
   const ext = dot > 0 && name.length - dot <= 6 ? name.slice(dot) : '';
@@ -459,6 +475,8 @@ function ask(text, yes = 'Удалить') {
 }
 
 async function show(id) {
+  openRes();                                     // модалка открывается СРАЗУ — внутри крутится спиннер
+  $('#segs').innerHTML = '<div class="segload"><div class="spin"></div><span>загружаю результат…</span></div>';
   const j = await detail(id);
   if (S.openId !== id) return;                     // пока ждали ответ, открыли другую строку
   const done = j.status === 'done' && !!((j.result || {}).segments || []).length;
@@ -506,7 +524,9 @@ async function show(id) {
     const map = {};
     $$('#spk input').forEach(i => { const v = i.value.trim(); if (v) map[i.dataset.raw] = v; });
     try {
-      await api(EP + `/jobs/${id}/speakers`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(map) });
+      await withBusy('сохраняю имена спикеров…', async () => {
+        await api(EP + `/jobs/${id}/speakers`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(map) });
+      });
       S.details.delete(id);
       Object.keys(DRAFT).forEach(k => { if (k.startsWith(id + '|')) delete DRAFT[k]; });
       toast('имена сохранены — они попадут в srt/vtt/tsv/md');
@@ -516,11 +536,50 @@ async function show(id) {
 }
 
 /* ------------------------------------------------------------------- действия */
+/* очередь загрузки: видна в модалке «Загрузки» (прогресс + отмен) — таблица не трогается */
+function xhrPost(path, fd, onp) {
+  const x = new XMLHttpRequest();
+  x.open('POST', path);                      // забыли open() → «state must be OPENED» при send()
+  const p = new Promise((res, rej) => {
+    x.upload.onprogress = (e) => { if (e.total) onp(e.loaded / e.total); };
+    x.onload = () => {
+      if (x.status >= 200 && x.status < 300) return res();
+      let msg = x.status + ' ' + x.statusText;
+      try { const j = JSON.parse(x.responseText); msg = j?.detail?.error?.message || (typeof j?.detail === 'string' ? j.detail : msg); } catch (e) {}
+      rej(new Error(msg));
+    };
+    x.onerror = () => rej(new Error('сеть недоступна'));
+    x.onabort = () => rej(Object.assign(new Error('загрузка отменена'), { aborted: true }));
+    x.send(fd);
+  });
+  return { p, x };
+}
+function renderUpl() {                          // модалка очереди + кнопка-индикатор в тулбаре
+  const live = S.upl.filter(i => i.status === 'loading' || i.status === 'queued');
+  $('#uplb').hidden = !S.upl.length;
+  const b = $('#uplb .tl'); if (b) b.textContent = `загрузки${live.length ? ' · ' + live.length : ''}`;
+  $('#ulm').textContent = S.upl.length ? `${live.length ? live.length + ' в процессе' : 'все завершены'} · ${S.upl.length} всего` : '';
+  $('#upllist').innerHTML = S.upl.map((it, i) => {
+    const st = it.status === 'done' ? 'готово' : it.status === 'error' ? `ошибка: ${it.err || '—'}` :
+      it.status === 'cancel' ? 'убрано из очереди' : `загрузка ${it.pct}%`;
+    return `<div class="upli${it.status === 'done' ? ' ok' : it.status === 'error' ? ' bad' : ''}">
+      <div class="upln" title="${esc(it.name)}">${shortName(it.name)}<em>${fmtSize(it.size)}</em></div>
+      <div class="uplbar" style="--p:${it.status === 'done' ? 100 : it.pct}%"><i></i></div>
+      <div class="uplmeta"><span class="uplst">${st}</span><button class="uplx" data-i="${i}">${it.status === 'loading' ? 'убрать' : 'убрать'}</button></div>
+    </div>`;
+  }).join('') || '<p class="none">очередь пуста</p>';
+  $$('#upllist .uplx').forEach(btn => btn.onclick = () => {
+    const it = S.upl[+btn.dataset.i]; if (!it) return;
+    if (it.status === 'loading' && it.x) it.x.abort();   // прерываем — статус поменяет onabort
+    else { S.upl.splice(+btn.dataset.i, 1); renderUpl(); }
+  });
+}
+function uplOpen(on) { $('#umask').hidden = !on; }
 async function addFiles(files) {
   const list = [...files].filter(f => f && f.size);
   if (!list.length) return;
   const f = store();
-  let added = 0;
+  const fresh = [];
   for (const file of list) {
     const fd = new FormData();
     fd.append('file', file, file.name);
@@ -531,12 +590,21 @@ async function addFiles(files) {
     fd.append('word_timestamps', String(f.word_timestamps));
     fd.append('max_speakers', ($('#maxs').value.match(/\d+/) || [8])[0]);
     fd.append('start', 'false');               // в очередь, не сразу: решает кнопка «Старт»
-    try { await api(EP + 'jobs', { method: 'POST', body: fd }); added++; }
-    catch (e) { toast(`${file.name}: ${e.message}`); }
+    const it = { name: file.name, size: file.size, pct: 0, status: 'loading', err: '', x: null, p: null };
+    S.upl.push(it); fresh.push(it);
+    const up = xhrPost(EP + 'jobs', fd, (r) => { it.pct = Math.round(r * 100); renderUpl(); });
+    it.x = up.x;
+    it.p = up.p.then(
+      () => { it.status = 'done'; it.pct = 100; renderUpl(); },
+      (e) => { it.status = e && e.aborted ? 'cancel' : 'error'; it.err = e.message; renderUpl(); });
   }
+  uplOpen(true); renderUpl();                  // сразу видно: очередь + прогресс каждого файла
+  await Promise.allSettled(fresh.map(i => i.p));
   S.details.clear();
   await loadJobs();
-  toast(`в очереди ${added} ${plural(added, 'файл', 'файла', 'файлов')} — нажми «Старт»`);
+  const ok = fresh.filter(i => i.status === 'done').length;
+  renderUpl();
+  if (ok) toast(`в очереди ${ok} ${plural(ok, 'файл', 'файла', 'файлов')} — нажми «Старт»`);
 }
 async function del(ids) {
   const arr = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
@@ -547,7 +615,8 @@ async function del(ids) {
   if (!await ask(q)) return;                                // удаление — только с подтверждением
   let r;
   try {
-    r = await api(EP + 'jobs?ids=' + arr.join(','), { method: 'DELETE' });
+    r = await withBusy(`удаляю${arr.length > 1 ? ' ' + arr.length + ' задач…' : '…'}`,
+      () => api(EP + 'jobs?ids=' + arr.join(','), { method: 'DELETE' }));
   } catch (e) { return toast('не вышло: ' + e.message); }
   if (!r || !r.count) return toast('сервер не удалил ни одной задачи');
   arr.forEach(id => { S.picked.delete(id); S.details.delete(id);
@@ -627,6 +696,9 @@ function wire() {
   $('#model').onchange = saveStore;
   $('#rclose').onclick = () => { S.openId = null; hideRes(); };
   $('#mask').onclick = (e) => { if (e.target.id === 'mask') { S.openId = null; hideRes(); } };
+  $('#uplb').onclick = () => { renderUpl(); uplOpen(true); };       // индикатор очереди → модалка «Загрузки»
+  $('#ulclose').onclick = () => uplOpen(false);
+  $('#umask').onclick = (e) => { if (e.target.id === 'umask') uplOpen(false); };
   // черновик имён спикеров: пишем каждое нажатие, чтобы перерисовка не стирала набранное
   $('#spk').addEventListener('input', (e) => {
     const i = e.target; if (!i || !i.dataset || !i.dataset.raw) return;
