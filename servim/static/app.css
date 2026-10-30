@@ -221,6 +221,7 @@ kbd{background:#121b1d;border:1px solid var(--line2);border-radius:4px;padding:0
   .tbtn{padding:9px 11px;font-size:0;gap:0;border-radius:6px}
   .tbtn svg{width:19px;height:19px}
   .tbtn#start,.tbtn#stop{font-size:12.5px;font-weight:700;gap:6px}
+  .actx .tbtn{font-size:12.5px;gap:6px}   /* подписи кнопок в модалках не гасим (Готово/выйти/…) */
   .mob-sel{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line);
     overflow-x:auto;scrollbar-width:none}
   .mob-sel::-webkit-scrollbar{display:none}

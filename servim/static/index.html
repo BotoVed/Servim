@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=2.1.0">
+<link rel="stylesheet" href="./app.css?v=2.2.1">
 </head>
 <body>
 <header>
@@ -27,17 +27,13 @@
       <option value="3">3</option><option value="4">4</option><option value="5">5</option>
       <option value="6">6</option><option value="8">8</option></select></label>
     <p class="hintx">Применяется к новым загружаемым файлам.</p>
-    <h3>Подключение</h3>
-    <label class="fld"><span>Адрес сервера</span><input id="c_url" type="text" placeholder="http://192.168.10.149:8090/" spellcheck="false"></label>
-    <label class="fld"><span>API key</span><input id="c_key" type="password" placeholder="свой ключ — в профиле; поле для чужого сервера" spellcheck="false"></label>
     <h3>Профиль</h3>
     <div id="prof" hidden>
       <p class="hintx profwho" id="prof_who"></p>
       <label class="fld"><span>Мой API-ключ (для скриптов и внешних клиентов)</span><input id="p_key" type="text" readonly spellcheck="false"></label>
       <div class="actx"><button class="tbtn" id="p_out">выйти</button></div>
     </div>
-    <p class="hintx" id="cfgwhy">Адрес применяется сразу; настройки пользователя хранятся на сервере и следуют за тобой с любого устройства.</p>
-    <div class="actx"><button class="tbtn" id="c_reset" data-tip="сбросить адрес к адресу этой страницы">Сбросить</button><button class="tbtn pri" id="c_ok" data-tip="закрыть">Готово</button></div>
+    <div class="actx"><button class="tbtn pri" id="c_ok" data-tip="закрыть">Готово</button></div>
     <p class="hintx ver2" id="vcopy"></p>
   </div>
 </header>
@@ -108,7 +104,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=2.1.0" defer></script>
+<script src="./app.js?v=2.2.1" defer></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">

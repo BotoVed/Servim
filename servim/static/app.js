@@ -16,7 +16,7 @@
 const EP0 = location.pathname.replace(/\/{2,}/g, '/').replace(/[^/]*$/, '');   // страница с // в адресе не должна ломать запросы
 const CFG_KEY = 'servim.cfg';
 const cfg = () => { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}'); } catch (e) { return {}; } };
-let EP = EP0;                       // подменяется настройкой «адрес сервера»
+const EP = EP0;                     // адрес сервера = адрес этой страницы (поле адреса упразднено)
 const authHeaders = () => { const c = cfg(); const h = {};
   if (c.key) h.Authorization = 'Bearer ' + c.key; return h; };
 const _q = (s, r) => r.querySelector(s);
@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.1.0';   // синхронно с ?v= в index.html
+const UI_VER = '2.2.1';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -168,9 +168,8 @@ function applyServerSettings(st) {
   if (!st || typeof st !== 'object') return;
   try {
     if (st.cfg && typeof st.cfg === 'object') {
-      localStorage.setItem(CFG_KEY, JSON.stringify({ ...cfg(), ...st.cfg }));
-      const u = (cfg().url || '').trim().replace(/\/+$/, '');
-      EP = u ? u + '/' : EP0;
+      const c = { ...st.cfg }; delete c.url;   // старое поле адреса игнорируем — теперь адрес всегда этой страницы
+      localStorage.setItem(CFG_KEY, JSON.stringify({ ...cfg(), ...c }));
     }
     if (st.ui && typeof st.ui === 'object') {
       const cur = JSON.parse(localStorage.getItem(LS) || '{}');
@@ -671,31 +670,16 @@ function wire() {
     }
   });
 
-  window.openCfg = function openCfg(why) {
+  window.openCfg = function openCfg() {
     const sheet = $('#cfg'); if (!sheet) return;
     sheet.hidden = false;
-    const w = $('#cfgwhy');
-    if (w) w.textContent = why ? '⚠ ' + why + '. Адрес сервера — первой строкой; значения хранятся только в этом браузере.'
-      : 'Адрес применяется сразу, остальное — когда сервер начнёт их требовать. Значения хранятся только в этом браузере.';
-    const f = $('#c_url'); if (f && why) f.focus();
   };
   (function settings() {
     const sheet = $('#cfg'); if (!sheet) return;
-    const fields = { url: $('#c_url'), key: $('#c_key') };
-    const show = () => { const c = cfg(); Object.keys(fields).forEach(k => { if (fields[k]) fields[k].value = c[k] || ''; }); };
-    const save = () => { const c = {}; Object.keys(fields).forEach(k => { if (fields[k] && fields[k].value) c[k] = fields[k].value.trim(); });
-      localStorage.setItem(CFG_KEY, JSON.stringify(c));
-      const u = (c.url || '').trim().replace(/\/+$/, ''); EP = u ? u + '/' : EP0;
-      saveStore();   // модель/язык/спикеры помнятся между визитами и на сервере
-      $$('#cfg select').forEach(sel => sel.onchange = save); };
-    Object.values(fields).forEach(el => el && el.addEventListener('change', save));
-    $('#gear').onclick = () => { show(); if (sheet.hidden) openCfg(); else sheet.hidden = true; };
-    $('#c_ok').onclick = () => { save(); sheet.hidden = true; reload(); };
-    $('#c_reset').onclick = () => { fields.url.value = ''; save(); reload(); };
+    $$('#cfg select').forEach(sel => sel.onchange = saveStore);   // модель/язык/спикеры помнятся между визитами и на сервере
+    $('#gear').onclick = () => { if (sheet.hidden) openCfg(); else sheet.hidden = true; };
+    $('#c_ok').onclick = () => { sheet.hidden = true; };
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') sheet.hidden = true; });
-    show();
-    const u = (cfg().url || '').trim().replace(/\/+$/, '');
-    if (u) EP = u + '/';
   })();
 
   (function authui() {
@@ -763,9 +747,9 @@ function wire() {
     await loadHealth();
   } catch (e) {
     $('#tb').innerHTML = `<tr><td colspan="4" class="empty">сервис недоступен: ${esc(e.message)}`
-      + `<br><button class="tbtn" id="cfgopen">открыть настройки</button> — проверь адрес сервера</td></tr>`;
-    const b = $('#cfgopen'); if (b) b.onclick = () => openCfg('сервер не отвечает — проверь адрес');
-    openCfg('сервер не отвечает: ' + e.message);   // пустой экран без объяснений — худший вариант
+      + `<br>адрес сервера — адрес этой страницы; снаружи (через прокси) войди на прокси и перезагрузи страницу.`
+      + `<br><button class="tbtn" id="retry">повторить</button></td></tr>`;
+    const b = $('#retry'); if (b) b.onclick = () => location.reload();
     return;
   }
   // авторизация: setup при первом запуске, вход — после него
@@ -783,9 +767,9 @@ function wire() {
     if (S.jobs.some(isLive) || S.health.busy) poll(); else render();
   } catch (e) {
     $('#tb').innerHTML = `<tr><td colspan="4" class="empty">сервис недоступен: ${esc(e.message)}`
-      + `<br><button class="tbtn" id="cfgopen">открыть настройки</button> — проверь адрес сервера</td></tr>`;
-    const b = $('#cfgopen'); if (b) b.onclick = () => openCfg('сервер не отвечает — проверь адрес');
-    openCfg('сервер не отвечает: ' + e.message);   // пустой экран без объяснений — худший вариант
+      + `<br>адрес сервера — адрес этой страницы; снаружи (через прокси) войди на прокси и перезагрузи страницу.`
+      + `<br><button class="tbtn" id="retry">повторить</button></td></tr>`;
+    const b = $('#retry'); if (b) b.onclick = () => location.reload();
   }
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { Promise.all([loadJobs(), loadQueue()]).then(render); poll(); } });
 window.addEventListener('focus', () => Promise.all([loadJobs(), loadQueue()]).then(render));
