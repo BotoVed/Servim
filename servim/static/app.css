@@ -473,7 +473,9 @@ html,body{height:100%}
   .wrap{padding:12px}
   header{padding:12px 14px}
   .tools{padding:11px 12px;gap:8px;overflow:visible}
-  .tools>.mobmore>summary.tbtn{width:42px;height:42px;padding:0}
+  /* Вся основная полоса — один touch-ритм: никаких 32px рядом с 42px. */
+  .tools>.tbtn,.tools>.mobmore>summary.tbtn{box-sizing:border-box;height:42px;min-height:42px;align-self:center}
+  .tools>.mobmore>summary.tbtn{width:42px;padding:0}
   .tbtn{padding:10px 12px}
   .tbtn svg{width:21px;height:21px}
   .tbtn#start,.tbtn#stop{font-size:14px}
