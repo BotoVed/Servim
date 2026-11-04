@@ -5,6 +5,7 @@ const DIR = A && !A.endsWith('.js') && !A.endsWith('.css') ? A : '/tmp/servim/se
 const ARG = (f) => path.join(DIR, f);
 const src = fs.readFileSync(ARG('app.js'), 'utf8');
 const css = fs.readFileSync(ARG('app.css'), 'utf8');
+const srcSrv = fs.readFileSync(path.join(__dirname, '..', 'servim', 'server.py'), 'utf8');
 
 const fail = [];
 const ok = (c, m) => { console.log((c ? '  OK   ' : '  ПАДЕНИЕ ') + m); if (!c) fail.push(m); };
@@ -32,6 +33,11 @@ ok(/tip\.className = 'jtip'/.test(src) && /, 1000\)/.test(src), 'хинт поя
 ok(/const pill = \(f, hide\) =>/.test(src), 'пилюля собирается одной функцией');
 ok(/class="dl ph"/.test(src), 'плейсхолдер без результата — та же пилюля (.dl.ph)');
 ok(/data-tip="скачать \.\$\{f\}"/.test(src), 'подпись пилюли — в data-tip');
+
+/* BOM UTF-8: текстовые форматы (srt/vtt/stxt/tsv/md/txt) — с BOM для Android-просмотрщиков;
+   живой байт-чек (реальные ответы сервера) — в браузер-тесте check_v227.py. Здесь — статика. */
+ok(/return "\\ufeff" \+ body, "application\/x-subrip"/.test(srcSrv), 'render: SRT начинается с BOM (\\ufeff)');
+ok((srcSrv.match(/\\ufeff/g) || []).length >= 6, `render: BOM в 6 текстовых форматах (найдено ${srcSrv.match(/\\ufeff/g).length})`);
 
 console.log(fail.length ? `\nПАДЕНИЙ: ${fail.length}` : '\nвсе проверки пройдены');
 process.exit(fail.length ? 1 : 0);

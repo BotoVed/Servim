@@ -202,6 +202,9 @@ tr:hover td.c-st .ck input,tr.sel td.c-st .ck input{border-color:var(--acc)}
 .spk button{background:var(--acc);color:var(--acc-ink);border:0;border-radius:var(--r2);
   font:700 10.5px inherit;font-family:inherit;letter-spacing:.4px;padding:5px 9px;cursor:pointer}
 .spk button.ghost{background:transparent;color:var(--mut);border:1px solid var(--line2)}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--fg);cursor:pointer;user-select:none}
+.chk input{width:14px;height:14px;accent-color:var(--acc);cursor:pointer}
+.spkin{font-weight:700}
 .drop{outline:2px dashed var(--acc);outline-offset:-4px;background:rgba(34,224,208,.04)}
 .tip{font-size:11px;color:var(--mut2);padding:9px 16px;border-top:1px solid var(--line);
   display:flex;gap:12px;flex-wrap:wrap}

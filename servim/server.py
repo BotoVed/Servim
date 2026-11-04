@@ -210,7 +210,7 @@ def _user_settings(uid: str) -> dict:
         return {}
 
 
-app = FastAPI(title="WhisperX ASR", version="1.3.4",
+app = FastAPI(title="WhisperX ASR", version="1.3.5",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
 
 # FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
@@ -486,7 +486,9 @@ def split_segments_by_speaker(result: dict) -> dict:
 
 
 def render(result: dict, fmt: str) -> tuple[str, str, str]:
-    """(тело, mimetype, расширение). result — внутренний словарь WhisperX + speaker-маппинг."""
+    """(тело, mimetype, расширение). result — внутренний словарь WhisperX + speaker-маппинг.
+    Текстовые форматы получают BOM UTF-8: мобильные просмотрщики (Android) не умеют угадать
+    кодировку кириллицы без BOM и показывают кракозябры. JSON — без BOM (строгие парсеры)."""
     names = speaker_letters(result)
     segs = result.get("segments", [])
     lab = lambda s: names.get(s.get("speaker")) if s.get("speaker") else None  # noqa: E731
@@ -498,31 +500,31 @@ def render(result: dict, fmt: str) -> tuple[str, str, str]:
         body = "\n".join(
             f"{i}\n{_ts_srt(s['start'])} --> {_ts_srt(s['end'])}\n{_line(s['text'].strip(), lab(s), has_spk)}\n"
             for i, s in enumerate(segs, 1))
-        return body, "application/x-subrip", "srt"
+        return "\ufeff" + body, "application/x-subrip", "srt"
     if fmt == "vtt":
         lines = ["WEBVTT", ""]
         for s in segs:
             who = lab(s)
             lines.append(f"{_ts_vtt(s['start'])} --> {_ts_vtt(s['end'])}\n"
                          + (f"<v {who}>{s['text'].strip()}" if who else s["text"].strip()) + "\n")
-        return "\n".join(lines), "text/vtt", "vtt"
+        return "\ufeff" + "\n".join(lines), "text/vtt", "vtt"
     if fmt == "stxt":
         # формат субтитров Super (.stxt): заголовок Super-VTT + блоки Start/End/Line
         out = [f"Super-VTT:stxt:v1\nLanguage={result.get('language', 'ru').upper()}\n"]
         for s in segs:
             out.append(f"Start:{_ts_stxt(s['start'])}\nEnd:{_ts_stxt(s['end'])}\n"
                        f"Line:{_line(s['text'].strip(), lab(s), has_spk)}\n")
-        return "\n".join(out), "text/plain", "stxt"
+        return "\ufeff" + "\n".join(out), "text/plain", "stxt"
     if fmt == "tsv":
         rows = ["start\tend\tspeaker\ttext"] + [
             f"{s['start']:.3f}\t{s['end']:.3f}\t{lab(s) or ''}\t{s['text'].strip()}" for s in segs]
-        return "\n".join(rows), "text/tab-separated-values", "tsv"
+        return "\ufeff" + "\n".join(rows), "text/tab-separated-values", "tsv"
     if fmt == "md":
         rows = ["| время | спикер | текст |", "|---|---|---|"] + [
             f"| {_ts_vtt(s['start'])} | {lab(s) or '—'} | {s['text'].strip().replace('|', '\\|')} |" for s in segs]
-        return "\n".join(rows), "text/markdown", "md"
+        return "\ufeff" + "\n".join(rows), "text/markdown", "md"
     text = "\n".join(_line(s["text"].strip(), lab(s), has_spk and fmt == "txt" and False) for s in segs)
-    return text, "text/plain", "txt"
+    return "\ufeff" + text, "text/plain", "txt"
 
 
 def openai_verbose(result: dict) -> dict:

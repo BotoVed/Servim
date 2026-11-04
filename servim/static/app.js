@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.5.0';   // синхронно с ?v= в index.html
+const UI_VER = '2.5.1';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -86,7 +86,7 @@ const LABEL = { plan: 'запланировано', queued: 'в очереди',
 const S = {
   picked: new Set(),          // отмеченные чекбоксами задачи
   jobs: [], health: {}, queue: { paused: false }, sel: null, pinned: null, hover: null, openId: null,
-  details: new Map(), timer: null, formats: EXPORT, uFilter: '',   // фильтр по пользователю (админ)
+  details: new Map(), timer: null, formats: EXPORT, uFilter: '', wspk: false,   // uFilter — фильтр по пользователю (админ); wspk — «спикер в тексте» в модалке
   upl: []                     // очередь загрузки: {name,size,pct,status,err,x,p}
 };
 
@@ -477,6 +477,7 @@ async function show(id) {
   const done = j.status === 'done' && !!((j.result || {}).segments || []).length;
   openRes();
   if (!done) { $('#rm').textContent = ''; $('#spk').innerHTML = ''; $('#fmt').innerHTML = '';
+    $('#wspkw').hidden = true;
     $('#segs').innerHTML = `<p class="none">${esc(LABEL[j.status] || j.status)}</p>`; return; }
   const r = j.result;
   $('#rt').textContent = 'Результат · ' + (j.name.length > 54 ? j.name.slice(0, 54) + '…' : j.name);
@@ -509,14 +510,23 @@ async function show(id) {
     localStorage.setItem(LS + '.fmt', $('#fmt').value);
     location.href = dlUrl(id, $('#fmt') ? $('#fmt').value : 'srt');
   };
+  $('#wspkw').hidden = false;
   const _segs = $('#segs'), _st = _segs.scrollTop;   // позиция скролла переживает перерисовку
-  _segs.innerHTML = r.segments.map(s => {   // слова с таймкодами в модалке НЕ показываем — дублируют текст; они есть в json/srt
-    const k = Math.max(0, Object.keys(raw2).indexOf(s.speaker)) % COL.length;
-    return `<div class="seg"><div>
+  const wspk = $('#wspk');
+  const paintSegs = () => {   // слова с таймкодами в модалке НЕ показываем — дублируют текст; они есть в json/srt
+    const on = wspk.checked;                                  // чекбокс «спикер в тексте»: имя перед текстом
+    _segs.innerHTML = r.segments.map(s => {
+      const k = Math.max(0, Object.keys(raw2).indexOf(s.speaker)) % COL.length;
+      const nm = on ? `<span class="spkin" style="color:${FG[k]}">${esc(who(s.speaker))}:</span> ` : '';
+      return `<div class="seg"><div>
         <span class="tag" style="background:${COL[k]};color:${FG[k]}">${esc(who(s.speaker))}</span>
         <div class="meta">${(s.start ?? 0).toFixed(2)}–${(s.end ?? 0).toFixed(2)} с</div></div>
-      <div><div class="tx">${esc((s.text || '').trim())}</div></div></div>`;
-  }).join('');
+      <div><div class="tx">${nm}${esc((s.text || '').trim())}</div></div></div>`;
+    }).join('');
+  };
+  wspk.checked = S.wspk === true;                              // выбор живёт в S, переживает перерисовку
+  wspk.onchange = () => { S.wspk = wspk.checked; paintSegs(); };
+  paintSegs();
   _segs.scrollTop = _st;
 
   // именованные спикеры: правится здесь и сразу уходит на сервер
@@ -524,7 +534,8 @@ async function show(id) {
   const spk = (j.speakers || []).map(s =>
     `<span class="chip"><b style="color:${FG[Math.max(0, (j.speakers || []).indexOf(s)) % FG.length]}">${esc(s.label)}</b>
       <input data-raw="${esc(s.raw)}" value="${esc(draftVal(s))}" placeholder="${esc(s.raw)}" aria-label="имя спикера ${esc(s.label)}"></span>`).join('');
-  $('#spk').innerHTML = spk + (spk ? ' <button id="spksave">сохранить имена</button>' : '');
+  $('#spk').innerHTML = spk ? spk + ' <button id="spksave">сохранить имена</button>'
+    : '<span class="none">спикеров нет (диаризация выключена в этой задаче)</span>';
   const save = $('#spksave');
   if (save) save.onclick = async () => {
     const map = {};

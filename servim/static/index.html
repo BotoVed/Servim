@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Servim</title>
-<link rel="stylesheet" href="./app.css?v=2.5.0">
+<link rel="stylesheet" href="./app.css?v=2.5.1">
 </head>
 <body>
 <header>
@@ -90,6 +90,7 @@
         <div class="rf">
           <span class="spk" id="spk"></span>
           <span class="gr"></span>
+          <label class="chk" id="wspkw" for="wspk" title="имя спикера (псевдоним) перед текстом каждого сегмента"><input type="checkbox" id="wspk">спикер в тексте</label>
           <label class="dlab" for="fmt">скачать</label>
           <select id="fmt" aria-label="формат файла"></select>
           <button class="go" id="dl">скачать</button>
@@ -119,7 +120,7 @@
   </div>
 </div>
 
-<script src="./app.js?v=2.5.0" defer></script>
+<script src="./app.js?v=2.5.1" defer></script>
   <!-- ============================ подтверждение удаления (свой диалог, не confirm) -->
   <div class="mask" id="pickmask" hidden>
     <div class="box askbox">
