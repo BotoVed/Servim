@@ -210,7 +210,7 @@ def _user_settings(uid: str) -> dict:
         return {}
 
 
-app = FastAPI(title="WhisperX ASR", version="1.3.3",
+app = FastAPI(title="WhisperX ASR", version="1.3.4",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
 
 # FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
@@ -262,10 +262,14 @@ _asr_cache: dict[tuple, Any] = {}
 
 
 def _no_vad():
-    """VAD выключен: весь файл — один сегмент. whisperx 3.8.x load_model не принимает
-    vad_method=None (ValueError: Invalid vad_method), но вручную назначенный vad_model
-    имеет приоритет — используем no-op класс по тому же API (preprocess_audio/__call__/merge_chunks)."""
+    """VAD выключен: весь файл = последовательность 30-с-окон (стандартный блок whisper).
+    whisperx 3.8.x: load_model не принимает vad_method=None (ValueError: Invalid vad_method),
+    но вручную назначенный vad_model имеет приоритет. Важно: merge_chunks ТОЛЬКО склеивает
+    короткие сегменты и никогда не режет длинные, а encoder CTranslate2 требует mel ровно
+    (1, 128, 3000) — один «весь файл» сегмент роняет длинные записи
+    (ValueError: Invalid input features shape: ... (1, 128, 584007)). Окна по N_SAMPLES=480000."""
     from whisperx.vads.vad import Vad
+    from whisperx.audio import N_SAMPLES, SAMPLE_RATE
 
     class _NoVad(Vad):
         def __init__(self, **kwargs):
@@ -276,9 +280,13 @@ def _no_vad():
             return audio
 
         def __call__(self, x):
-            s = types.SimpleNamespace(start=0.0, end=float(len(x["waveform"])) / x["sample_rate"],
-                                      speaker=None)
-            return [s]
+            n = len(x["waveform"])
+            segs = []
+            for start in range(0, max(n, 1), N_SAMPLES):
+                end = min(start + N_SAMPLES, n)
+                segs.append(types.SimpleNamespace(
+                    start=start / SAMPLE_RATE, end=end / SAMPLE_RATE, speaker=None))
+            return segs
 
     return _NoVad()
 
