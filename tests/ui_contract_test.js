@@ -49,10 +49,11 @@ ok(/\$\('#cfg select'\)\.forEach\(sel => sel\.onchange = saveStore\)/.test(js), 
 
 /* 5. таблица: колонок «Тип»/«Длит.» нет, всё в ячейке с именем */
 ok(!/<th class="c-type"|<th class="c-dur"/.test(html), 'колонок «Тип» и «Длит.» в шапке нет');
-ok(/class="rowmeta"[\s\S]{0,300}class="meta"[\s\S]{0,200}class="pill/.test(js),
-  'длительность и тип рисуются в ячейке имени');
-ok(js.indexOf('class="pill') < js.indexOf('class="dur"'), 'тип левее длительности (как в мокапе)');
-ok(/\.meta\{[^}]*margin-left:auto/.test(css), 'длительность и тип прижаты к правому краю');
+ok(/class="file"[\s\S]{0,800}class="filemeta"[\s\S]{0,300}class="dur"[\s\S]{0,300}class="spk"/.test(js),
+  'длительность и спикеры рисуются в строке имени');
+ok(!/class="pill \$\{j\.type/.test(js) && !/\.pill\.ogg/.test(css),
+  'пилюля типа файла полностью удалена');
+ok(/\.filemeta\{[^}]*margin-left:auto/.test(css), 'длительность и спикеры прижаты к правому краю');
 const empty = (js.match(/class="empty"[^<]*/) || [''])[0];
 ok(/colspan="2"/.test(js), 'заглушки строк пересчитаны под 2 колонки (отметка+файл)');
 

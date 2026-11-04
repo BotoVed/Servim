@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.6.0';   // синхронно с ?v= в index.html
+const UI_VER = '2.6.1';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -410,10 +410,10 @@ function render() {
           <span class="st ${j.status}" ${j.status === 'done' ? 'data-open="1"' : ''}
             title="${j.status === 'done' ? 'открыть результат' : (LABEL[j.status] || j.status)}">${ICON[j.status] || ICON.plan}</span></td>
         <td class="c-file">
-          <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span></div>
+          <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span><div class="filemeta">${S.me?.user?.role === 'admin' && j.owner ? `<span class="own">@${esc(String(j.owner))}</span>` : ''}<span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="spk">${s.speakers ? `${s.speakers} ${plural(s.speakers, 'спикер', 'спикера', 'спикеров')}` : '—'}</span></div></div>
           <div class="rowmeta">
             ${res}
-            <div class="meta"><span class="pill ${j.type || ''}">${esc(j.type || '?')}</span>${S.me?.user?.role === 'admin' && j.owner ? `<span class="own">@${esc(String(j.owner))}</span>` : ''}<span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="spk">${s.speakers ? `${s.speakers} ${plural(s.speakers, 'спикер', 'спикера', 'спикеров')}` : '—'}</span>${stat}</div>
+            <div class="meta">${stat}</div>
             ${(j.status === 'done' && j.note) ? `<div class="sub"><span class="note">${esc(String(j.note).slice(0, 90))}</span></div>` : ''}
           </div>
         </td>

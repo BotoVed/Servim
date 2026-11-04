@@ -95,10 +95,11 @@ const js = fs.readFileSync(ARG('app.js'), 'utf8');   // исходник — д�
   const check = (name, cond, extra = '') =>
     console.log((cond ? 'OK   ' : 'ФАЙЛ ') + name + (cond ? '' : '  ' + extra));
 
-  check('таблица отрисована', tb.includes('c-file') && tb.includes('class="pill'), tb.slice(0, 120));
+  check('таблица отрисована', tb.includes('c-file') && tb.includes('class="filemeta"'), tb.slice(0, 120));
+  check('пилюли типа файла удалены', !tb.includes('class="pill'), tb.slice(0, 120));
   check('строк == задач', (tb.match(/data-id=/g) || []).length === jobs.length,
     (tb.match(/data-id=/g) || []).length + ' vs ' + jobs.length);
-  check('тип — пилюля у каждой задачи', (tb.match(/class="pill /g) || []).length === jobs.length);
+  check('длительность и спикеры в строке имени', (tb.match(/class="filemeta"/g) || []).length === jobs.length);
   check('длительность', /\d+(\.\d)? с|\d+:\d\d/.test(tb));
   check('спикеры в строке (мета)', tb.includes('class="spk"'));
   // ссылка на скачивание — только у готовых; у готовой — под именем файла

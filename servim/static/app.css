@@ -115,27 +115,23 @@ td.c-st{display:flex;align-items:center;justify-content:center;gap:5px}
 
 /* файл + прогресс фоном */
 .file{position:relative;border-radius:var(--r2);padding:4px 8px;margin:-4px -8px;overflow:hidden;
-  flex:1 1 auto;min-width:0}
+  flex:1 1 auto;min-width:0;display:flex;align-items:baseline;gap:8px}
 .file{cursor:pointer}
 .file:hover>span{color:var(--acc2)}
 .file>i{position:absolute;inset:0 auto 0 0;width:var(--p,0%);
   background:linear-gradient(90deg,rgba(34,224,208,.22),rgba(94,234,212,.10));
   border-right:1px solid rgba(34,224,208,.5);transition:width .45s linear;z-index:0}
 .file>span{position:relative;z-index:1;display:block;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap;padding-right:26px}
+  white-space:nowrap;min-width:0;flex:1 1 auto}
+.filemeta{position:relative;z-index:1;display:flex;align-items:baseline;justify-content:flex-end;gap:7px;
+  margin-left:auto;flex:0 0 auto;min-width:0;font-size:11.5px;color:var(--mut);font-variant-numeric:tabular-nums}
+.filemeta .dur,.filemeta .spk{white-space:nowrap}
 .file b{font-weight:560}
 .file em{font-style:normal;color:var(--acc2)}
 .sub{font-size:11px;color:var(--mut);margin-top:3px}
 
-/* пилюли типа файла */
-.pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:99px;letter-spacing:.6px;
-  text-transform:uppercase;background:#151e20;border:1px solid var(--line2);color:#9db3ae}
-.pill.ogg{color:#7ee2a0;border-color:#274d38;background:rgba(52,211,153,.08)}
-.pill.mp3{color:#7dd3fc;border-color:#1f4256;background:rgba(56,189,248,.08)}
-.pill.wav{color:#fcd34d;border-color:#4d3f1c;background:rgba(251,191,36,.08)}
-.pill.m4a,.pill.aac,.pill.opus{color:#d8b4fe;border-color:#42305e;background:rgba(167,139,250,.10)}
-.pill.flac{color:#5eead4;border-color:#215049;background:rgba(34,224,208,.08)}
-.pill.mp4,.pill.mkv,.pill.webm,.pill.mov{color:#f9a8d4;border-color:#5a2b48;background:rgba(232,121,249,.08)}
+/* мета статуса под строкой форматов */
+.meta{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
 
 /* пилюли действий: под именем файла, в одну строку (на мобиле — в две) */
 .fmts{display:flex;gap:5px;flex-wrap:nowrap;margin-top:4px}
@@ -344,8 +340,6 @@ h2{display:none}
 .rowmeta{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:3px}
 .rowmeta .sub{margin-top:0}
 .meta{display:inline-flex;align-items:center;gap:7px;margin-left:auto;flex:0 1 auto;min-width:0}
-.meta .dur{font-size:11.5px;color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
-.meta .spk{font-size:11.5px;color:var(--mut);white-space:nowrap}
 .st-tx{font-size:11.5px;color:var(--ok);white-space:nowrap}
 .st-tx.bad{color:var(--err)}
 .c-type,.c-dur{display:none}
@@ -498,7 +492,8 @@ html,body{height:100%}
   .mobmore-menu .sep{display:block;width:auto;height:1px;margin:5px 4px;background:var(--line2)}
   #tb tr{padding:14px 14px 14px 52px;min-height:92px}
   #tb td.c-st{left:14px;top:14px}
-  .file{margin:-4px 0 2px;padding:5px 7px;min-height:44px;display:flex;align-items:center}
+  .file{margin:-4px 0 2px;padding:5px 7px;min-height:48px;display:flex;align-items:flex-start}
   .file>span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;white-space:normal;font-size:15px;line-height:1.38;text-overflow:clip}
+  .filemeta{font-size:11.5px;gap:5px;padding-top:2px}
   .rowmeta{font-size:12px}
 }
