@@ -238,15 +238,19 @@ kbd{background:#121b1d;border:1px solid var(--line2);border-radius:4px;padding:0
   .jtbl{display:block;width:100%;table-layout:auto}
   .jtbl thead{display:none}
   #tb, #tb tr, #tb td{display:block;width:auto}
-  #tb tbody tr{padding:11px 12px 11px 44px;border-bottom:1px solid #141c1e}
+  #tb tr{padding:11px 12px 11px 48px;border-bottom:1px solid #141c1e}  /* #tb — это <tbody>, селектор «#tb tbody tr» не матчится */
   #tb td{border:0;padding:0}
   #tb td.c-st{position:absolute;left:12px;top:12px;width:auto;display:flex}
   td.c-file{padding-right:2px}
-  .file{padding:2px 6px;margin:-2px -6px}
-  .file>span{white-space:normal;font-size:13.5px;line-height:1.35;padding-right:22px}
+  .file{padding:2px 6px;margin:-2px 0}
+  .file>span{white-space:normal;font-size:13.5px;line-height:1.35;padding-right:0}
   td.c-st{left:12px;top:12px;gap:6px}
   .dl a{padding:6px 10px}
-  .seg{grid-template-columns:74px 1fr;gap:9px;padding:9px 12px}
+  .seg{grid-template-columns:1fr;gap:6px;padding:10px 12px}
+  /* тег спикера и время — на одной строке: время не переносится посередине
+     (14.57–17.31 / с), а текст занимает всю ширину под ними */
+  .seg>div:first-child{display:flex;align-items:center;gap:8px;min-width:0}
+  .seg .meta{margin-left:0;white-space:nowrap}
   .tip{font-size:10.5px;gap:8px}
 }
 @media (hover:none){.x{opacity:1}}
@@ -416,7 +420,7 @@ h2{display:none}
 .tools .ufiltw select{display:block;width:auto;min-width:120px;font-size:12px;color:var(--fg);background:#12211f;
   border:1px solid var(--line2);border-radius:var(--r2);padding:5px 7px}
 @media (max-width:780px){
-  .tools select#ufilt{display:block;min-width:100px}  /* исключение из «.tools select{display:none}» */
+  .tools .ufiltw select{display:none}  /* на моб. тулбар и так скроллится, селект не влезает — скрыт */
   .tools .ufiltw{margin-left:0}
 }
 @media (min-width:900px){.dlx{display:inline-flex}.dl.more{display:none}}
