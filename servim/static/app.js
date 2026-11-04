@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.6.3';   // синхронно с ?v= в index.html
+const UI_VER = '2.6.4';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -442,12 +442,9 @@ function render() {
   $('#start').disabled = !(plan > 0 || inFlight > 0);
   $('#stop').disabled = !(S.health.busy || inFlight > 0);
   $('#lamp').className = S.health.busy ? 'busy' : (S.health.status === 'ready' ? 'ok' : (S.health.error ? 'bad' : ''));
-  // модалку не перестраиваем, пока фокус внутри неё: каждые ~1.6 с её
-  // пересоздание сносило фокус и набранный текст в полях имён спикеров
-  if (S.openId) {
-    const ae = document.activeElement;
-    if (!(ae && ae.closest && ae.closest('#mask'))) show(S.openId);
-  }
+  // Открытая модалка — самостоятельный снимок результата. Не вызываем show() из poll/render:
+  // на touch-устройствах фокус при прокрутке уходит в BODY, а show() очищал #segs
+  // спиннером каждые 1.6 с и сбрасывал scrollTop в начало.
 }
 
 function openRes() { $('#mask').hidden = false; }
