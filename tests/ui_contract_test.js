@@ -32,12 +32,12 @@ ok(qv.length === 1 && qv[0] === ver, 'версия одна и та же: UI_VER
 /* 3. панель инструментов: действия + карандаш + пиктограммы-переключатели, без селектов */
 ok(/<label id="ufiltw"[^>]*hidden/.test(tools), 'в тулбаре есть скрытый по умолчанию фильтр по пользователю (админ)');
 ['start', 'stop', 'edit'].forEach(id => ok(new RegExp('id="' + id + '"').test(tools), 'в панели есть кнопка #' + id));
-ok(tools.indexOf('id="stop"') < tools.indexOf('id="edit"') && tools.indexOf('id="edit"') < tools.indexOf('data-flag="diarize"'),
-  'карандаш стоит между «стоп» и переключателями');
+ok(tools.includes('class="mobmore"') && tools.indexOf('id="edit"') < tools.indexOf('data-flag="diarize"'),
+  'второстепенные действия собраны в меню «…»');
 const tgl = [...tools.matchAll(/<button class="tbtn tgl"[\s\S]*?<\/button>/g)].map(m => m[0]);
 ok(tgl.length === 3, 'переключателей ровно три', tgl.length);
-ok(tgl.every(b => /<svg/.test(b) && /data-tip=/.test(b) && !/>[а-яё]/.test(b.split('<svg')[0] + '>')),
-  'переключатели — пиктограммы с подсказкой, без текста');
+ok(tgl.every(b => /<svg/.test(b) && /aria-label=/.test(b) && /data-mob-label=/.test(b)),
+  'переключатели доступны по aria-label и подписаны в меню');
 ok(/\.tools \.tbtn\.tgl\[aria-pressed="true"\]/.test(css), 'включённый переключатель подсвечен зелёным');
 ok(/data-flag="diarize"[\s\S]{0,400}data-flag="vad_filter"[\s\S]{0,400}data-flag="word_timestamps"/.test(html),
   'все три флага передаются как раньше');
