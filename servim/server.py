@@ -32,6 +32,7 @@ import tempfile
 import threading
 import time
 import traceback
+import types
 import uuid
 from pathlib import Path
 from typing import Any
@@ -209,7 +210,7 @@ def _user_settings(uid: str) -> dict:
         return {}
 
 
-app = FastAPI(title="WhisperX ASR", version="1.3.2",
+app = FastAPI(title="WhisperX ASR", version="1.3.3",
               description="Локальная замена OpenAI Audio Transcriptions: WhisperX + pyannote.")
 
 # FastAPI не редиректит ДВОЙНОЙ ведущий слэш (//jobs → 405/404): страница, открытая
@@ -260,6 +261,28 @@ def resolve_model(name: str | None) -> str:
 _asr_cache: dict[tuple, Any] = {}
 
 
+def _no_vad():
+    """VAD выключен: весь файл — один сегмент. whisperx 3.8.x load_model не принимает
+    vad_method=None (ValueError: Invalid vad_method), но вручную назначенный vad_model
+    имеет приоритет — используем no-op класс по тому же API (preprocess_audio/__call__/merge_chunks)."""
+    from whisperx.vads.vad import Vad
+
+    class _NoVad(Vad):
+        def __init__(self, **kwargs):
+            super().__init__(0.5)
+
+        @staticmethod
+        def preprocess_audio(audio):
+            return audio
+
+        def __call__(self, x):
+            s = types.SimpleNamespace(start=0.0, end=float(len(x["waveform"])) / x["sample_rate"],
+                                      speaker=None)
+            return [s]
+
+    return _NoVad()
+
+
 def _asr_key(name: str, o: dict) -> tuple:
     return (name, int(o.get("beam_size", 5)), bool(o.get("word_timestamps", True)),
             bool(o.get("vad_filter", True)), (o.get("initial_prompt") or "")[:180])
@@ -291,10 +314,12 @@ def get_asr(model_name: str, o: dict | None = None):
                        "vad_onset": float(o.get("vad_onset", 0.5)),
                        "vad_offset": float(o.get("vad_offset", 0.363))}
         try:
-            asr = whisperx.load_model(model_name, DEVICE, compute_type=COMPUTE,
-                                      asr_options=asr_options,
-                                      vad_method="silero" if o.get("vad_filter", True) else None,
-                                      vad_options=vad_options)
+            kwargs = {"asr_options": asr_options, "vad_options": vad_options}
+            if o.get("vad_filter", True):
+                kwargs["vad_method"] = "silero"
+            else:
+                kwargs["vad_model"] = _no_vad()      # VAD выкл — no-op вместо vad_method=None
+            asr = whisperx.load_model(model_name, DEVICE, compute_type=COMPUTE, **kwargs)
         except Exception as exc:  # noqa: BLE001
             _state["error"] = f"{type(exc).__name__}: {exc}"
             _state["loading"] = None
