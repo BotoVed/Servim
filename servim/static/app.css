@@ -479,7 +479,7 @@ html,body{height:100%}
   .wrap{padding:12px}
   header{padding:12px 14px}
   .tools{padding:11px 12px;gap:8px;overflow:visible}
-  .tools>.tbtn,.tools>.mobmore>summary{min-height:42px;border-radius:8px}
+  .tools>.mobmore>summary.tbtn{width:42px;height:42px;padding:0}
   .tbtn{padding:10px 12px}
   .tbtn svg{width:21px;height:21px}
   .tbtn#start,.tbtn#stop{font-size:14px}
@@ -487,12 +487,14 @@ html,body{height:100%}
   .mobmore>summary{display:flex;align-items:center;justify-content:center;box-sizing:border-box;list-style:none;width:42px;height:42px;padding:0;cursor:pointer}
   .mobmore>summary::-webkit-details-marker{display:none}
   .mobmore>summary span{font:800 18px/1 system-ui;letter-spacing:1px;transform:translateY(-3px)}
-  .mobmore-menu{position:absolute;right:0;top:48px;z-index:35;width:min(260px,calc(100vw - 28px));padding:7px;background:#10201e;border:1px solid var(--line2);border-radius:10px;box-shadow:0 16px 36px rgba(0,0,0,.36)}
+  .mobmore-menu{position:absolute;right:0;top:48px;z-index:35;width:min(240px,calc(100vw - 28px));padding:7px;background:#10201e;border:1px solid var(--line2);border-radius:10px;box-shadow:0 16px 36px rgba(0,0,0,.36)}
   .mobmore:not([open])>.mobmore-menu{display:none}
   .mobmore-menu .tbtn{width:100%;min-height:42px;padding:9px 10px;justify-content:flex-start;gap:10px;font-size:14px;text-align:left;background:transparent;border-color:transparent}
   .mobmore-menu .tbtn:hover{background:#1b2f2c;border-color:var(--line2);transform:none}
   .mobmore-menu .tbtn svg{width:19px;height:19px}
   .mobmore-menu .tbtn::after{content:attr(data-mob-label);font:600 14px/1.2 inherit}
+  /* Правило зелёной точки у .tools .tbtn.tgl специфичнее; в меню after — это подпись. */
+  .tools .mobmore-menu .tbtn.tgl[aria-pressed="true"]::after{content:attr(data-mob-label);position:static;width:auto;height:auto;border-radius:0;background:transparent;box-shadow:none;font:600 14px/1.2 inherit}
   .mobmore-menu .sep{display:block;width:auto;height:1px;margin:5px 4px;background:var(--line2)}
   #tb tr{padding:14px 14px 14px 52px;min-height:92px}
   #tb td.c-st{left:14px;top:14px}
