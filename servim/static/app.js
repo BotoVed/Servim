@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.6.4';   // синхронно с ?v= в index.html
+const UI_VER = '2.6.5';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -712,7 +712,13 @@ function wire() {
   $('#add').onclick = () => $('#f').click();
   $('#f').onchange = (e) => { addFiles(e.target.files); e.target.value = ''; };
   const more = $('.mobmore');
-  document.addEventListener('pointerdown', (e) => { if (more?.open && !more.contains(e.target)) more.open = false; });
+  // <details> по спецификации скрывает содержимое в закрытом состоянии: одного
+  // CSS display:contents на десктопе недостаточно. Держим его реально открытым
+  // на широком экране (summary там скрыт), а на телефоне — обычным закрытым меню.
+  const syncMore = () => { if (more) more.open = !matchMedia('(max-width:780px)').matches; };
+  syncMore();
+  addEventListener('resize', syncMore);
+  document.addEventListener('pointerdown', (e) => { if (more?.open && matchMedia('(max-width:780px)').matches && !more.contains(e.target)) more.open = false; });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && more?.open) { more.open = false; more?.querySelector('summary')?.focus(); } });
   more?.addEventListener('click', (e) => { if (e.target.closest('button')) more.open = false; });
   $('#start').onclick = () => startQueue().catch(e => toast(e.message));
