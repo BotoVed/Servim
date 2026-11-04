@@ -717,7 +717,7 @@ function wire() {
   // на широком экране (summary там скрыт), а на телефоне — обычным закрытым меню.
   const syncMore = () => { if (more) more.open = !matchMedia('(max-width:780px)').matches; };
   syncMore();
-  addEventListener('resize', syncMore);
+  window.addEventListener('resize', syncMore);
   document.addEventListener('pointerdown', (e) => { if (more?.open && matchMedia('(max-width:780px)').matches && !more.contains(e.target)) more.open = false; });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && more?.open) { more.open = false; more?.querySelector('summary')?.focus(); } });
   more?.addEventListener('click', (e) => { if (e.target.closest('button')) more.open = false; });
