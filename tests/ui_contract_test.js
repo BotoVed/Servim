@@ -65,7 +65,8 @@ ok(/\.dlx\{display:inline-flex\}/.test(css) && /\.dl\.more\{display:none\}/.test
 /* 7. открытие результата */
 ok(/closest\('\.file'\)/.test(js), 'двойной клик работает по названию файла');
 ok(/\$\('#edit'\)\.onclick/.test(js), 'карандаш открывает результат выбранной задачи');
-ok(/data-open/.test(js), 'иконка статуса у готовой задачи тоже открывает');
+ok(!/data-open/.test(js) && /j\.status === 'done' \? '' : `<span class="st/.test(js),
+  'у готовой задачи нет отдельной стрелки статуса');
 
 /* 8. подвал и высота */
 ok(/id="cnt"/.test(foot.slice(0, 500)), 'счётчик задач — в подвале таблицы');

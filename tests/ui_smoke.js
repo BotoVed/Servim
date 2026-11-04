@@ -237,12 +237,10 @@ const js = fs.readFileSync(ARG('app.js'), 'utf8');   // исходник — д�
   vm.runInContext(`S.openId = ${JSON.stringify(done.id)}; show(S.openId);`, ctx);
   await new Promise(r => setTimeout(r, 150));
   check('двойной клик открывает модалку', q('#mask').hidden === false);
-  // ------- «▶» в колонке статуса у готовой задачи = открыть результат (просил юзер)
-  vm.runInContext(`render();`, ctx); await new Promise(r => setTimeout(r, 40));
-  const rows = q('#tb').innerHTML;
-  check('▶ готовой задачи помечена открывать результат', /class="st done" data-open="1"/.test(rows));
-  check('у плановой задачи ▶ результат не открывает', !/class="st (plan|queued|running)"[^>]*data-open/.test(rows));
-  check('у готовой задачи ▶ подписана «открыть результат»', /data-open="1"[\s\S]{0,40}title="открыть результат"/.test(rows));
+  // готовая задача: статусная стрелка не рисуется — результат открывается двойным кликом по имени
+  const renderedRows = q('#tb').innerHTML;
+  check('у готовой задачи нет стрелки статуса', !/class="st done"/.test(renderedRows));
+  check('у плановой задачи статусная иконка остаётся', /class="st plan"/.test(renderedRows));
   vm.runInContext(`$('#rclose').onclick();`, ctx);
   check('«закрыть» гасит модалку и состояние',
     q('#mask').hidden === true && vm.runInContext('S.openId', ctx) === null);

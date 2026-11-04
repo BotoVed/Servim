@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.6.1';   // синхронно с ?v= в index.html
+const UI_VER = '2.6.2';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -74,7 +74,7 @@ const ICON = {
   queued: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>',
   loading: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/></svg>',
   running: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>',
-  done: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13M5.5 11.5 12 18l6.5-6.5"/></svg>',
+  done: '',  // готовая задача открывается двойным кликом по имени; отдельной стрелки в строке нет
   error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>',
   dl: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
   x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>'
@@ -407,8 +407,7 @@ function render() {
             : isLive(j) ? 'появится, когда закончится обработка' : 'запусти обработку — и здесь появятся файлы'}">…</span></div>`;
       return `<tr data-id="${j.id}" data-owner="${esc(j.owner || '')}" tabindex="0" class="${j.status === 'running' ? 'running' : ''} ${S.sel === j.id ? 'sel' : ''} ${S.picked.has(j.id) ? 'pick' : ''}">
         <td class="c-st"><label class="ck" title="отметить"><input type="checkbox" data-ck="${j.id}" ${S.picked.has(j.id) ? 'checked' : ''} tabindex="-1" aria-label="отметить ${esc(j.name)}"></label>
-          <span class="st ${j.status}" ${j.status === 'done' ? 'data-open="1"' : ''}
-            title="${j.status === 'done' ? 'открыть результат' : (LABEL[j.status] || j.status)}">${ICON[j.status] || ICON.plan}</span></td>
+          ${j.status === 'done' ? '' : `<span class="st ${j.status}" title="${LABEL[j.status] || j.status}">${ICON[j.status] || ICON.plan}</span>`}</td>
         <td class="c-file">
           <div class="file" style="--p:${pct}%" title="${esc(j.name)}"><i></i><span>${shortName(j.name)}</span><div class="filemeta">${S.me?.user?.role === 'admin' && j.owner ? `<span class="own">@${esc(String(j.owner))}</span>` : ''}<span class="dur">${fmtDur(j.duration ?? s.duration)}</span><span class="spk">${s.speakers ? `${s.speakers} ${plural(s.speakers, 'спикер', 'спикера', 'спикеров')}` : '—'}</span></div></div>
           <div class="rowmeta">
@@ -772,13 +771,8 @@ function wire() {
   };
   $('#tb').addEventListener('dblclick' , (e) => {   // двойной по НАЗВАНИЮ — открыть результат
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
-    if (!e.target.closest('.file')) return;         // по пилюлям и прочему — не открываем
+    if (!e.target.closest('.file')) return;         // по скачиваниям и прочему — не открываем
     openRow(tr);
-  });
-  $('#tb').addEventListener('click', (e) => {      // кнопка в колонке «Результат» — то же
-    const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
-    if (!e.target.closest('[data-open]')) return;
-    e.stopPropagation(); openRow(tr);
   });
   $('#tb').addEventListener('keydown', (e) => {
     const tr = e.target.closest('tr'); if (!tr) return;
