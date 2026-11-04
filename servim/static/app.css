@@ -480,7 +480,7 @@ html,body{height:100%}
   .mobmore{display:block;position:relative;flex:0 0 auto}
   .mobmore>summary{display:flex;align-items:center;justify-content:center;box-sizing:border-box;list-style:none;width:42px;height:42px;padding:0;cursor:pointer}
   .mobmore>summary::-webkit-details-marker{display:none}
-  .mobmore>summary span{font:800 18px/1 system-ui;letter-spacing:1px;transform:translateY(-3px)}
+  .tools>.mobmore>summary.tbtn svg{width:21px;height:21px;display:block}
   .mobmore-menu{position:absolute;right:0;top:48px;z-index:35;width:min(240px,calc(100vw - 28px));padding:7px;background:#10201e;border:1px solid var(--line2);border-radius:10px;box-shadow:0 16px 36px rgba(0,0,0,.36)}
   .mobmore:not([open])>.mobmore-menu{display:none}
   .mobmore-menu .tbtn{width:100%;min-height:42px;padding:9px 10px;justify-content:flex-start;gap:10px;font-size:14px;text-align:left;background:transparent;border-color:transparent}
