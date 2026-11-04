@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.6.2';   // синхронно с ?v= в index.html
+const UI_VER = '2.6.3';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -749,11 +749,14 @@ function wire() {
     render();
   });
   $('#tb').addEventListener('click', (e) => {
-    if (e.target.closest('[data-ck]')) return;      // чекбокс не выделяет строку
+    if (e.target.closest('[data-ck],a,button,input,select,label')) return; // не перехватываем чекбокс и скачивания
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
+    const j = S.jobs.find(x => x.id === tr.dataset.id);
     const now = Date.now();
-    if (S.lastClick && S.lastClick.id === tr.dataset.id && now - S.lastClick.t < 500) {
-      S.lastClick = null; openRow(tr); return;      // второй клик по той же строке — открыть
+    // Рендер после первого клика заменяет DOM-строку, поэтому dblclick браузера ненадёжен.
+    // 850 мс — человеческий двойной тап/клик, а не требование успеть за машинные 500 мс.
+    if (j?.status === 'done' && S.lastClick && S.lastClick.id === tr.dataset.id && now - S.lastClick.t < 850) {
+      S.lastClick = null; openRow(tr); return;
     }
     S.lastClick = { id: tr.dataset.id, t: now };
     S.sel = tr.dataset.id; render();               // одинарный клик — только выделение
@@ -769,10 +772,11 @@ function wire() {
     if (j.status !== 'done') return toast('результата ещё нет — запусти обработку');
     S.openId = j.id; render(); show(j.id);
   };
-  $('#tb').addEventListener('dblclick' , (e) => {   // двойной по НАЗВАНИЮ — открыть результат
+  $('#tb').addEventListener('dblclick' , (e) => {   // подстраховка для нативного dblclick
+    if (e.target.closest('[data-ck],a,button,input,select,label')) return;
     const tr = e.target.closest('tr'); if (!tr || !tr.dataset.id) return;
-    if (!e.target.closest('.file')) return;         // по скачиваниям и прочему — не открываем
-    openRow(tr);
+    const j = S.jobs.find(x => x.id === tr.dataset.id);
+    if (j?.status === 'done') openRow(tr);
   });
   $('#tb').addEventListener('keydown', (e) => {
     const tr = e.target.closest('tr'); if (!tr) return;
