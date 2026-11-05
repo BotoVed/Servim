@@ -63,7 +63,7 @@ ok(/dls\.map\(f => pill\(f, 0\)\)\.join\(''\)/.test(js), 'пилюли рису�
 ok(/\.dlx\{display:inline-flex\}/.test(css) && /\.dl\.more\{display:none\}/.test(css), 'лишних состояний пилюль в CSS нет');
 
 /* 7. открытие результата */
-ok(/closest\('\.file'\)/.test(js), 'двойной клик работает по названию файла');
+ok(/addEventListener\('dblclick'/.test(js) && /S\.lastClick/.test(js) && /850/.test(js), 'двойной клик по строке: собственный детектор 850 мс + нативный dblclick');
 ok(/\$\('#edit'\)\.onclick/.test(js), 'карандаш открывает результат выбранной задачи');
 ok(!/data-open/.test(js) && /j\.status === 'done' \? '' : `<span class="st/.test(js),
   'у готовой задачи нет отдельной стрелки статуса');
