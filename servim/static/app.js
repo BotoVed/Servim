@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.6.6';   // синхронно с ?v= в index.html
+const UI_VER = '2.6.8';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -105,6 +105,9 @@ async function withBusy(text, fn) {
 
 /* ------------------------------------------------------------------- утилиты */
 async function api(path, opt) {
+  // EP на корне сайта заканчивается на '/'; часть старых вызовов добавляет '/jobs'.
+  // Нельзя отдавать fetch('//jobs/...'): браузер считает это URL другого хоста «jobs».
+  path = path.replace(/^\/{2,}/, '/');
   const r = await fetch(path, opt);
   if (!r.ok) {
     let msg = r.status + ' ' + r.statusText;
@@ -544,7 +547,7 @@ async function show(id) {
   const save = $('#spksave');
   if (save) save.onclick = async () => {
     const map = {};
-    $$('#spk input').forEach(i => { const v = i.value.trim(); if (v) map[i.dataset.raw] = v; });
+    $$('#spk input').forEach(i => { map[i.dataset.raw] = i.value.trim(); });
     try {
       await withBusy('сохраняю имена спикеров…', async () => {
         await api(EP + `/jobs/${id}/speakers`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(map) });
