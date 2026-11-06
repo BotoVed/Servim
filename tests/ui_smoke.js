@@ -123,6 +123,14 @@ const js = fs.readFileSync(ARG('app.js'), 'utf8');   // исходник — д�
     vm.runInContext(`S.uFilter = ''; render();`, ctx);
     const all = (q('#tb').innerHTML.match(/data-id=/g) || []).length;
     check('фильтр снят: все строки вернулись', all === jobs.length, String(all));
+    // админ по умолчанию — только свои; «все» — явный выбор
+    vm.runInContext(`S.me = { user: { name: ${JSON.stringify(owners[0])}, role: 'admin' } }; S.uFilter = ''; render();`, ctx);
+    const own = [...q('#tb').innerHTML.matchAll(/data-owner="([^"]*)"/g)].map(m => m[1]);
+    check('админ без фильтра: только свои задачи', own.length > 0 && own.every(x => x === owners[0]), JSON.stringify(own));
+    vm.runInContext(`S.uFilter = 'все'; render();`, ctx);
+    const all2 = (q('#tb').innerHTML.match(/data-id=/g) || []).length;
+    check('админ «все»: все строки', all2 === jobs.length, String(all2));
+    vm.runInContext(`S.me = null; S.uFilter = ''; render();`, ctx);
   }
   check('нет битовой маски статусов', !/&[a-z];/.test(tb), (tb.match(/&[a-z];/g) || []).slice(0, 3).join());
 

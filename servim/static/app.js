@@ -65,7 +65,7 @@ document.addEventListener('scroll', tipHide, true);
 
 const DRAFT = {};   // черновики имён спикеров: `${id}|${raw}` -> значение
 const LS = 'wx.ui.v3';
-const UI_VER = '2.6.5';   // синхронно с ?v= в index.html
+const UI_VER = '2.6.6';   // синхронно с ?v= в index.html
 const FMT_DEFAULT = ['json', 'txt', 'srt', 'vtt', 'tsv', 'md', 'keywords', 'summary'];
 const dlUrl = (id, f) => `${EP}jobs/${id}/result?format=${f}`;
 const fmts = () => (S.formats && S.formats.length) ? S.formats : FMT_DEFAULT;
@@ -233,9 +233,12 @@ async function adminReload() {
 function fillUFilter() {
   const sel = $('#ufilt'); if (!sel) return;
   const users = S.adUsers || [];
-  sel.innerHTML = '<option value="">все пользователи</option>' + users.map(u =>
-    `<option value="${esc(u.name)}"${u.name === S.uFilter ? ' selected' : ''}>${esc(u.name)}${S.user && u.id === S.user.id ? ' (это ты)' : ''}</option>`).join('');
-  if (S.uFilter && !users.some(u => u.name === S.uFilter)) { S.uFilter = ''; sel.value = ''; render(); }
+  const mine = S.me && S.me.user ? S.me.user.name : '';
+  sel.innerHTML = `<option value="">только свои${mine ? ' (' + esc(mine) + ')' : ''}</option>` + users.map(u =>
+    `<option value="${esc(u.name)}"${u.name === S.uFilter ? ' selected' : ''}>${esc(u.name)}${u.name === mine ? ' (это ты)' : ''}</option>`).join('')
+    + `<option value="все"${S.uFilter === 'все' ? ' selected' : ''}>все пользователи</option>`;
+  if (!S.uFilter) sel.value = '';
+  if (S.uFilter && S.uFilter !== 'все' && !users.some(u => u.name === S.uFilter)) { S.uFilter = ''; sel.value = ''; render(); }
 }
 
 async function loadUFilter() {
@@ -374,7 +377,13 @@ async function detail(id) {
 function isLive(j) { return ['queued', 'running', 'loading'].includes(j.status); }
 function render() {
   const tb = $('#tb');
-  const list = S.uFilter ? S.jobs.filter(j => (j.owner || '') === S.uFilter) : S.jobs;
+  // админ по умолчанию видит только свои; выбранный пользователь — его; «все» — явный выбор
+  let list = S.jobs;
+  if (S.uFilter) {
+    list = S.uFilter === 'все' ? S.jobs : S.jobs.filter(j => (j.owner || '') === S.uFilter);
+  } else if (S.me && S.me.user && S.me.user.role === 'admin') {
+    list = S.jobs.filter(j => (j.owner || '') === S.me.user.name);
+  }
   if (!S.jobs.length) {
     tb.innerHTML = '<tr><td colspan="2" class="empty">пусто — нажми «Добавить» или перетащи файлы на таблицу</td></tr>';
     S.picked.clear();
@@ -858,6 +867,18 @@ function wire() {
   ['dragenter', 'dragover'].forEach(ev => tw.addEventListener(ev, (e) => { e.preventDefault(); tw.classList.add('drop'); }));
   ['dragleave', 'drop'].forEach(ev => tw.addEventListener(ev, (e) => { e.preventDefault(); tw.classList.remove('drop'); }));
   tw.addEventListener('drop', (e) => addFiles(e.dataTransfer.files));
+
+  /* на телефоне: когда открывается клавиатура (visualViewport сжимается),
+     панель результата поднимается над ней — иначе «имя спикера» и «сохранить имена»
+     оказываются под клавиатурой (модалка position:fixed — браузер сам её не скроллит) */
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      const m = $('#mask'); if (!m || m.hidden) return;
+      const vv = window.visualViewport;
+      const kb = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+      m.style.maxHeight = kb > 40 ? Math.round(vv.height + (vv.offsetTop || 0)) + 'px' : '';
+    });
+  }
 
   // долгое нажатие на телефоне = удалить
   let lp = null;
